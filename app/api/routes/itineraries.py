@@ -1,12 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.models.itinerary import Itinerary
-from app.models.trip import Trip
 from app.schemas.itinerary import ItineraryCreate, ItineraryResponse
 from app.api.routes.auth import get_current_user
 from app.models.user import User
+from app.controllers.itinerary_controller import generate_and_save_itinerary, get_itinerary_by_trip
 
 router = APIRouter(prefix="/itineraries", tags=["Itineraries"])
 
@@ -17,22 +16,17 @@ def create_itinerary(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    trip = db.query(Trip).filter(Trip.id == data.trip_id, Trip.user_id == current_user.id).first()
-    if not trip:
-        raise HTTPException(status_code=404, detail="Trip not found")
-
-    existing = db.query(Itinerary).filter(Itinerary.trip_id == data.trip_id).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Itinerary already exists for this trip")
-
-    itinerary = Itinerary(
-        trip_id=data.trip_id,
-        days=[day.model_dump() for day in data.days],
+    """
+    Triggers AI itinerary generation for a trip, saves it, and returns the structured itinerary.
+    """
+    itinerary = generate_and_save_itinerary(db, data.trip_id, current_user.id)
+    return ItineraryResponse(
+        id=itinerary.id,
+        trip_id=itinerary.trip_id,
+        destination=itinerary.trip.destination,
+        days=itinerary.days,
+        total_estimated_cost=itinerary.total_estimated_cost or "N/A"
     )
-    db.add(itinerary)
-    db.commit()
-    db.refresh(itinerary)
-    return itinerary
 
 
 @router.get("/{trip_id}", response_model=ItineraryResponse)
@@ -41,11 +35,14 @@ def get_itinerary(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    trip = db.query(Trip).filter(Trip.id == trip_id, Trip.user_id == current_user.id).first()
-    if not trip:
-        raise HTTPException(status_code=404, detail="Trip not found")
-
-    itinerary = db.query(Itinerary).filter(Itinerary.trip_id == trip_id).first()
-    if not itinerary:
-        raise HTTPException(status_code=404, detail="Itinerary not found")
-    return itinerary
+    """
+    Fetches the generated travel itinerary for a specific trip.
+    """
+    itinerary = get_itinerary_by_trip(db, trip_id, current_user.id)
+    return ItineraryResponse(
+        id=itinerary.id,
+        trip_id=itinerary.trip_id,
+        destination=itinerary.trip.destination,
+        days=itinerary.days,
+        total_estimated_cost=itinerary.total_estimated_cost or "N/A"
+    )
