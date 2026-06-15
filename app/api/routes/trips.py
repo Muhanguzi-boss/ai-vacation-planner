@@ -74,3 +74,8 @@ def delete_trip(
         raise HTTPException(status_code=404, detail="Trip not found")
     db.delete(trip)
     db.commit()
+
+
+
+
+     
