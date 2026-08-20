@@ -1,40 +1,55 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm, HTTPBearer, HTTPAuthorizationCredentials
-
-from sqlalchemy.orm import Session
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError
+from sqlalchemy.orm import Session
 
+from app.core.security import create_access_token, decode_token, hash_password, verify_password
 from app.db.database import get_db
 from app.models.user import User
-from app.schemas.user import UserCreate, UserResponse, Token, TokenData
-from app.core.security import hash_password, verify_password, create_access_token, decode_token
+from app.schemas.user import Token, TokenData, UserCreate, UserResponse
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
-security_scheme = HTTPBearer()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
-    db: Session = Depends(get_db)
+    token: str | None = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
 ):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    try:
-        token = credentials.credentials
-        payload = decode_token(token)
-        username: str = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-        token_data = TokenData(username=username)
-    except JWTError:
+
+    if not token:
         raise credentials_exception
 
-    user = db.query(User).filter(User.username == token_data.username).first()
+    try:
+        payload = decode_token(token)
+        subject = payload.get("sub")
+        if subject is None:
+            raise credentials_exception
+
+        token_data = TokenData(username=str(subject))
+    except JWTError as exc:
+        raise credentials_exception from exc
+
+    user = None
+    try:
+        user_id = int(token_data.username)
+    except (TypeError, ValueError):
+        user_id = None
+
+    if user_id is not None:
+        user = db.query(User).filter(User.id == user_id).first()
+
+    if user is None:
+        user = db.query(User).filter(User.username == token_data.username).first()
+
     if user is None:
         raise credentials_exception
+
     return user
 
 
@@ -62,7 +77,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect username or password")
 
-    token = create_access_token(data={"sub": user.username})
+    token = create_access_token(data={"sub": str(user.id)})
     return {"access_token": token, "token_type": "bearer"}
 
 
