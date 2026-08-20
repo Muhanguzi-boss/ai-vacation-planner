@@ -3,7 +3,7 @@ from fastapi.openapi.utils import get_openapi
 
 from app.db.database import engine, Base
 from app.models import user, trip, itinerary
-from app.api.routes import auth, trips, itineraries
+from app.api.routes import auth, trips, itineraries, knowledge
 
 Base.metadata.create_all(bind=engine)
 
@@ -16,6 +16,7 @@ app = FastAPI(
 app.include_router(auth.router)
 app.include_router(trips.router)
 app.include_router(itineraries.router)
+app.include_router(knowledge.router)
 
 
 def custom_openapi():
