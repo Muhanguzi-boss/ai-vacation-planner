@@ -5,6 +5,7 @@ import logging
 from app.models.trip import Trip
 from app.models.itinerary import Itinerary
 from app.services.ai_service import ai_service
+from app.services.knowledge_service import knowledge_service
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +29,22 @@ def generate_and_save_itinerary(db: Session, trip_id: int, current_user_id: int)
     if existing:
         raise HTTPException(status_code=400, detail="Itinerary already exists for this trip")
 
-    # 3. Generate itinerary via AI Service
+    # 3. Retrieve destination context and generate itinerary via AI Service
     logger.info(f"Generating itinerary for trip {trip_id} (destination: {trip.destination})...")
     try:
+        knowledge_results = knowledge_service.search(
+            f"{trip.destination} {trip.trip_style or ''} travel planning"
+        )
+        retrieved_context = "\n\n".join(
+            f"Source: {result['metadata'].get('source', 'unknown')}\n{result['text']}"
+            for result in knowledge_results
+        ) or "No destination-specific knowledge was retrieved."
         generated = ai_service.generate_itinerary(
             destination=trip.destination,
             days=trip.days,
             budget=trip.budget,
-            trip_style=trip.trip_style
+            trip_style=trip.trip_style,
+            retrieved_context=retrieved_context,
         )
     except Exception as e:
         logger.error(f"Failed to generate itinerary: {str(e)}", exc_info=True)

@@ -203,6 +203,9 @@ cython_debug/
 # Temporary file for partial code execution
 tempCodeRunnerFile.py
 
+# Local RAG vector-store state
+data/vector_store.db
+
 # Ruff stuff:
 .ruff_cache/
 
