@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     KNOWLEDGE_CHUNK_OVERLAP: int = 120
     KNOWLEDGE_TOP_K: int = 5
     KNOWLEDGE_MIN_SCORE: float = 0.2
+    MAX_IMAGE_UPLOAD_MB: int = 5
 
 
 settings = Settings()
