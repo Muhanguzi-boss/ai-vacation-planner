@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     KNOWLEDGE_MIN_SCORE: float = 0.2
     MAX_IMAGE_UPLOAD_MB: int = 5
     MCP_TIMEOUT_SECONDS: int = 15
+    MCP_WEATHER_ENABLED: bool = False
 
 
 settings = Settings()

@@ -11,7 +11,7 @@ from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
 
 from app.services.ai_service import GeneratedItinerary, ai_service
-from app.tools import travel_knowledge_search_tool, weather_tool
+from app.tools import default_travel_tools
 
 MAX_TOOL_ITERATIONS = 3
 
@@ -33,7 +33,7 @@ class TravelPlanningOrchestrator:
         model: Any | None = None,
         tools: list[BaseTool] | None = None,
     ) -> None:
-        self.tools = tools or [travel_knowledge_search_tool, weather_tool]
+        self.tools = tools or default_travel_tools()
         self.model = model or self._create_anthropic_model()
         self.graph = self._build_graph()
 
