@@ -17,3 +17,7 @@ class SpeechSynthesisRequest(BaseModel):
         if not value.strip():
             raise ValueError("text must not be blank")
         return value.strip()
+
+
+class TranscriptionResponse(BaseModel):
+    text: str = Field(description="Transcribed speech. Empty when no speech was detected.")
