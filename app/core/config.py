@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     MAX_IMAGE_UPLOAD_MB: int = 5
     MCP_TIMEOUT_SECONDS: int = 15
     MCP_WEATHER_ENABLED: bool = False
+    MAX_TTS_TEXT_CHARS: int = 3000
 
 
 settings = Settings()
