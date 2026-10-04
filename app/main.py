@@ -3,7 +3,7 @@ from fastapi.openapi.utils import get_openapi
 
 from app.db.database import engine, Base
 from app.models import user, trip, itinerary
-from app.api.routes import auth, trips, itineraries
+from app.api.routes import auth, trips, itineraries, knowledge, vision, speech
 
 Base.metadata.create_all(bind=engine)
 
@@ -16,6 +16,9 @@ app = FastAPI(
 app.include_router(auth.router)
 app.include_router(trips.router)
 app.include_router(itineraries.router)
+app.include_router(knowledge.router)
+app.include_router(vision.router)
+app.include_router(speech.router)
 
 
 def custom_openapi():
@@ -27,13 +30,15 @@ def custom_openapi():
         description="Backend API for planning vacations with AI",
         routes=app.routes,
     )
-    openapi_schema["components"]["securitySchemes"] = {
-        "bearerAuth": {
-            "type": "http",
-            "scheme": "bearer",
-            "bearerFormat": "JWT",
-        }
+    openapi_schema["components"].setdefault("securitySchemes", {})["bearerAuth"] = {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
     }
+    for path_item in openapi_schema["paths"].values():
+        for operation in path_item.values():
+            if {"OAuth2PasswordBearer": []} in operation.get("security", []):
+                operation["security"].append({"bearerAuth": []})
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
