@@ -89,6 +89,18 @@ class ItineraryControllerIntegrationTests(unittest.TestCase):
         db.add.assert_not_called()
         db.commit.assert_not_called()
 
+    @patch("app.controllers.itinerary_controller.TravelPlanningOrchestrator")
+    def test_orchestration_failure_detail_does_not_expose_internal_errors(self, orchestrator_class):
+        trip = sample_trip()
+        orchestrator_class.return_value.invoke.side_effect = RuntimeError(
+            "Weather lookup failed: MCP server process could not be started"
+        )
+
+        with self.assertRaises(HTTPException) as context:
+            generate_and_save_itinerary(database_for_trip(trip), trip.id, trip.user_id)
+
+        self.assertEqual(context.exception.detail, "AI generation failed")
+
 
 if __name__ == "__main__":
     unittest.main()

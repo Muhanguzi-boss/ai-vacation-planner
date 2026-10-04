@@ -9,7 +9,8 @@ from app.services.agent_service import OrchestrationError, TravelPlanningOrchest
 from app.services.ai_service import GeneratedItinerary
 from app.services.mcp_client import MCPClient, MCPClientError
 from app.tools import default_travel_tools, travel_knowledge_search_tool, weather_tool
-from app.tools.mcp_tools import MCPWeatherService, create_mcp_weather_tool
+from app.services.weather_service import get_weather as local_get_weather
+from app.tools.mcp_tools import FALLBACK_NOTE, MCPWeatherService, create_mcp_weather_tool
 from app.tools.travel_tools import create_weather_tool
 from mcp_servers import weather_server
 
@@ -267,6 +268,73 @@ class MCPBoundaryIntegrationTests(unittest.TestCase):
 
         self.assertIn("Weather lookup failed", str(context.exception))
         self.assertIn("Location not found: Atlantis", str(context.exception))
+
+
+class MCPWeatherFallbackTests(unittest.TestCase):
+    def test_mcp_success_does_not_use_fallback(self):
+        fallback_calls = []
+
+        def fallback(location):
+            fallback_calls.append(location)
+            return {"summary": "local"}
+
+        result = create_mcp_weather_tool(FakeMCPClient(), fallback=fallback).invoke({"location": "Paris"})
+
+        self.assertEqual(result["weather"], MCP_FORECAST)
+        self.assertEqual(fallback_calls, [])
+
+    def test_mcp_failure_returns_labelled_local_weather_and_logs(self):
+        client = FakeMCPClient(error=MCPClientError("MCP tool 'get_forecast' timed out after 15 seconds"))
+
+        with self.assertLogs("app.tools.mcp_tools", "WARNING") as logs:
+            result = create_mcp_weather_tool(client, fallback=local_get_weather).invoke({"location": "Paris"})
+
+        self.assertEqual(
+            result,
+            {
+                "location": "Paris",
+                "weather": {
+                    "summary": "mostly sunny, average 24°C, light breeze",
+                    "source": "local fallback",
+                    "note": FALLBACK_NOTE,
+                },
+            },
+        )
+        self.assertIn("timed out", logs.output[0])
+
+    def test_unexpected_errors_are_not_hidden_by_fallback(self):
+        client = FakeMCPClient(error=TypeError("adapter bug"))
+
+        with self.assertRaises(RuntimeError) as context:
+            create_mcp_weather_tool(client, fallback=local_get_weather).invoke({"location": "Paris"})
+
+        self.assertIn("adapter bug", str(context.exception))
+
+    def test_default_tools_follow_fallback_setting(self):
+        for fallback_enabled in (True, False):
+            client = FakeMCPClient(error=MCPClientError("MCP server process could not be started"))
+            with patch.object(settings, "MCP_WEATHER_ENABLED", True), patch.object(
+                settings, "MCP_WEATHER_FALLBACK_ENABLED", fallback_enabled
+            ), patch("app.tools.mcp_tools.MCPClient", return_value=client):
+                tool = default_travel_tools()[1]
+
+            if fallback_enabled:
+                self.assertEqual(tool.invoke({"location": "Rome"})["weather"]["source"], "local fallback")
+            else:
+                with self.assertRaises(RuntimeError):
+                    tool.invoke({"location": "Rome"})
+
+    def test_itinerary_is_still_generated_when_mcp_weather_fails(self):
+        patcher = patch.object(weather_server, "create_http_client", fake_open_meteo(geocoding={}))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        tool = create_mcp_weather_tool(MCPClient(server=weather_server.server), fallback=local_get_weather)
+        model = FakeModel([weather_call("Paris"), AIMessage(content="Plan without a live forecast.")])
+
+        result = TravelPlanningOrchestrator(model=model, tools=[tool]).invoke("Plan a day in Paris around the weather.")
+
+        self.assertEqual(result.destination, "Paris")
+        self.assertIn(FALLBACK_NOTE, str(model.finalization_inputs[0]))
 
 
 if __name__ == "__main__":

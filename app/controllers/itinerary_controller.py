@@ -42,7 +42,7 @@ def generate_and_save_itinerary(db: Session, trip_id: int, current_user_id: int)
         logger.error(f"Failed to generate itinerary: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=502,
-            detail=f"AI generation failed: {str(e)}"
+            detail="AI generation failed"
         )
 
     # 4. Save to database

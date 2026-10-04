@@ -108,7 +108,8 @@ class VisionRouteTests(unittest.TestCase):
         response = self.post_image(JPEG_BYTES, "image/jpeg")
 
         self.assertEqual(response.status_code, 502)
-        self.assertIn("AI image analysis failed", response.json()["detail"])
+        self.assertEqual(response.json(), {"detail": "AI image analysis failed"})
+        self.assertNotIn("anthropic unavailable", response.text)
 
     def test_missing_file_returns_422(self):
         response = build_client().post("/vision/analyze")

@@ -213,6 +213,31 @@ class TranscriptionServiceTests(unittest.TestCase):
         self.assertEqual(self.factory.calls, 1)
         self.assertEqual(state["max_active"], 1)
 
+    def test_audio_longer_than_limit_is_rejected_before_inference(self):
+        consumed = []
+
+        class LongAudioModel(FakeWhisperModel):
+            def transcribe(self, path):
+                super().transcribe(path)
+                segments = (consumed.append(text) or SimpleNamespace(text=text) for text in self.texts)
+                return segments, SimpleNamespace(language="en", duration=600.0)
+
+        model = LongAudioModel()
+        service = TranscriptionService(model_factory=lambda: model, max_duration_seconds=300)
+
+        with self.assertRaises(InvalidAudioError) as context:
+            service.transcribe(wav_bytes(), "audio/wav")
+
+        self.assertEqual(str(context.exception), "Audio exceeds the 300-second duration limit")
+        self.assertEqual(consumed, [])
+        self.assertFalse(os.path.exists(model.calls[0]["path"]))
+
+    def test_duration_limit_defaults_to_settings(self):
+        with patch("app.services.transcription_service.settings", SimpleNamespace(
+            MAX_AUDIO_UPLOAD_MB=10, MAX_AUDIO_DURATION_SECONDS=42
+        )):
+            self.assertEqual(TranscriptionService().max_duration_seconds, 42)
+
     def test_audio_without_speech_returns_empty_text(self):
         self.assertEqual(self.service(CountingFactory(FakeWhisperModel(texts=()))).transcribe(wav_bytes(), "audio/wav"), "")
 

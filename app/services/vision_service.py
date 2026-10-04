@@ -1,10 +1,13 @@
 import base64
+import logging
 from typing import Any
 
 from langchain_core.messages import HumanMessage
 
 from app.core.config import settings
 from app.schemas.vision import ImageTravelInsights
+
+logger = logging.getLogger(__name__)
 
 SUPPORTED_IMAGE_TYPES = ("image/jpeg", "image/png", "image/gif", "image/webp")
 
@@ -103,7 +106,8 @@ class VisionService:
                 else ImageTravelInsights.model_validate(response)
             )
         except Exception as exc:
-            raise VisionAnalysisError(f"Image analysis failed: {exc}") from exc
+            logger.exception("Image analysis failed")
+            raise VisionAnalysisError("Image analysis failed") from exc
 
 
 vision_service = VisionService()

@@ -23,10 +23,12 @@ class Settings(BaseSettings):
     MAX_IMAGE_UPLOAD_MB: int = 5
     MCP_TIMEOUT_SECONDS: int = 15
     MCP_WEATHER_ENABLED: bool = False
+    MCP_WEATHER_FALLBACK_ENABLED: bool = True
     MAX_TTS_TEXT_CHARS: int = 3000
     WHISPER_MODEL: str = "base"
     WHISPER_COMPUTE_TYPE: str = "int8"
     MAX_AUDIO_UPLOAD_MB: int = 10
+    MAX_AUDIO_DURATION_SECONDS: int = 300
 
 
 settings = Settings()

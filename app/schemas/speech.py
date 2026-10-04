@@ -1,6 +1,9 @@
+from typing import List
+
 from pydantic import BaseModel, Field, field_validator
 
 from app.core.config import settings
+from app.schemas.itinerary import ItineraryDay
 
 
 class SpeechSynthesisRequest(BaseModel):
@@ -21,3 +24,10 @@ class SpeechSynthesisRequest(BaseModel):
 
 class TranscriptionResponse(BaseModel):
     text: str = Field(description="Transcribed speech. Empty when no speech was detected.")
+
+
+class VoicePlanResponse(BaseModel):
+    transcript: str = Field(description="What the speech-to-text model heard.")
+    destination: str
+    days: List[ItineraryDay]
+    total_estimated_cost: str

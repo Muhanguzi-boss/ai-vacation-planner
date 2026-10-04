@@ -31,7 +31,7 @@ class FakeWhisperModel:
         self.calls += 1
         if self.error:
             raise self.error
-        return iter([SimpleNamespace(text=" Plan a trip to Paris.")]), SimpleNamespace(language="en")
+        return iter([SimpleNamespace(text=" Plan a trip to Paris.")]), SimpleNamespace(language="en", duration=2.0)
 
 
 def build_app(authenticated=True):
@@ -92,6 +92,17 @@ class TranscriptionRouteTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 413)
         self.assertEqual(self.model.calls, 0)
+
+    def test_over_long_audio_returns_422(self):
+        long_model = FakeWhisperModel()
+        long_model.transcribe = lambda path: (iter([]), SimpleNamespace(language="en", duration=10_000.0))
+        service = TranscriptionService(model_factory=lambda: long_model, max_bytes=10_000)
+
+        with patch.object(speech, "transcription_service", service):
+            response = self.post(wav_bytes())
+
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("duration limit", response.json()["detail"])
 
     def test_model_failure_returns_generic_500(self):
         self.model.error = RuntimeError("model file C:\\Users\\secret\\model.bin is corrupt")

@@ -147,7 +147,8 @@ class VisionServiceTests(unittest.TestCase):
         with self.assertRaises(VisionAnalysisError) as context:
             VisionService(model=model).analyze(JPEG_BYTES, "image/jpeg")
 
-        self.assertIn("anthropic unavailable", str(context.exception))
+        self.assertEqual(str(context.exception), "Image analysis failed")
+        self.assertIn("anthropic unavailable", str(context.exception.__cause__))
 
     def test_dict_response_is_validated_into_schema(self):
         model = FakeVisionModel(response=sample_insights())

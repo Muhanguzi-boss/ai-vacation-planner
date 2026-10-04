@@ -68,9 +68,15 @@ def _is_decode_error(exc: Exception) -> bool:
 
 
 class TranscriptionService:
-    def __init__(self, model_factory: Callable[[], Any] | None = None, max_bytes: int | None = None) -> None:
+    def __init__(
+        self,
+        model_factory: Callable[[], Any] | None = None,
+        max_bytes: int | None = None,
+        max_duration_seconds: float | None = None,
+    ) -> None:
         self.model_factory = model_factory or create_whisper_model
         self.max_bytes = max_bytes or settings.MAX_AUDIO_UPLOAD_MB * 1024 * 1024
+        self.max_duration_seconds = max_duration_seconds or settings.MAX_AUDIO_DURATION_SECONDS
         self._model = None
         self._lock = threading.Lock()
 
@@ -103,8 +109,12 @@ class TranscriptionService:
             with os.fdopen(handle, "wb") as audio_file:
                 audio_file.write(data)
             with self._lock:
-                segments, _ = self._get_model().transcribe(path)
+                segments, info = self._get_model().transcribe(path)
+                if info.duration > self.max_duration_seconds:
+                    raise InvalidAudioError(f"Audio exceeds the {self.max_duration_seconds:g}-second duration limit")
                 return " ".join(segment.text.strip() for segment in segments if segment.text.strip())
+        except InvalidAudioError:
+            raise
         except Exception as exc:
             if _is_decode_error(exc):
                 raise InvalidAudioError("Audio could not be decoded") from exc

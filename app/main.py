@@ -30,13 +30,15 @@ def custom_openapi():
         description="Backend API for planning vacations with AI",
         routes=app.routes,
     )
-    openapi_schema["components"]["securitySchemes"] = {
-        "bearerAuth": {
-            "type": "http",
-            "scheme": "bearer",
-            "bearerFormat": "JWT",
-        }
+    openapi_schema["components"].setdefault("securitySchemes", {})["bearerAuth"] = {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
     }
+    for path_item in openapi_schema["paths"].values():
+        for operation in path_item.values():
+            if {"OAuth2PasswordBearer": []} in operation.get("security", []):
+                operation["security"].append({"bearerAuth": []})
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
