@@ -1,6 +1,15 @@
 # AI Vacation Planner API
 
-Backend REST API built with FastAPI for planning vacations end-to-end.
+Backend REST API built with FastAPI for planning vacations end-to-end: users manage trips, and an Anthropic-powered LangGraph agent generates structured day-by-day itineraries using a RAG travel knowledge base and a weather tool (optionally served over MCP). Phase 6 adds image understanding, local speech-to-text and text-to-speech, spoken itinerary requests, and spoken itineraries.
+
+## Provider Architecture
+
+- **LLM provider: Anthropic only.** Itinerary planning (LangGraph via `langchain-anthropic`) and image understanding use the Claude model in `ANTHROPIC_MODEL`. There is no fallback to another LLM provider.
+- **Embeddings: local by default.** The RAG store uses a deterministic local hashing embedder. OpenAI is used **only** as an optional embedding provider (`EMBEDDING_PROVIDER=openai`), which is why `openai` remains in `requirements.txt`; it is never used for text generation.
+- **Speech:** faster-whisper (speech-to-text) and pyttsx3/SAPI5 (text-to-speech) run locally; no speech API is called.
+- **Weather:** a local stub, or Open-Meteo through the MCP weather server.
+
+`app/services/ai_service.py` holds the shared Anthropic configuration. Its `generate_itinerary()` method is the original Phase 2 single-prompt generator (Anthropic, with a rule-based fallback); it is kept as that phase's baseline, and the API generates itineraries through the Phase 5 LangGraph orchestrator instead.
 
 ## Tech Stack
 
@@ -43,8 +52,11 @@ Backend REST API built with FastAPI for planning vacations end-to-end.
 
 ```bash
    cp .env.example .env
-   # Edit .env with your database credentials
+   # Edit .env with your database credentials and ANTHROPIC_API_KEY
 ```
+
+   Text-to-speech uses Windows SAPI5 voices. The first speech-to-text request downloads the
+   Whisper model (about 145 MB for `base`) into the Hugging Face cache.
 
 5. Run the server
 
@@ -147,7 +159,7 @@ POST /itineraries
 
 **Tool-loop safety:** `MAX_TOOL_ITERATIONS = 3` caps how many planner→tool round trips can happen; exceeding it raises `OrchestrationError` instead of looping indefinitely.
 
-**Failure handling:** tool exceptions are not swallowed — `ToolNode` is configured with `handle_tool_errors=False`, so a failing tool call surfaces as an exception that the orchestrator wraps in `OrchestrationError`, which the controller maps to an HTTP 502, matching the existing AI-failure error contract.
+**Failure handling:** tool exceptions are not swallowed — `ToolNode` is configured with `handle_tool_errors=False`, so a failing tool call surfaces as an exception that the orchestrator wraps in `OrchestrationError`, which the controller maps to an HTTP 502 (`"AI generation failed"`; details are logged server-side), matching the existing AI-failure error contract. Phase 6 adds a weather-specific fallback inside the MCP weather tool (see below).
 
 **Required configuration:** the orchestrator reuses the existing Anthropic settings already read by `app/services/ai_service.py` — no new environment variables or duplicated config parsing were introduced:
 
