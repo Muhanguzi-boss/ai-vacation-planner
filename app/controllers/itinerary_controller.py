@@ -4,7 +4,7 @@ import logging
 
 from app.models.trip import Trip
 from app.models.itinerary import Itinerary
-from app.services.ai_service import ai_service
+from app.services.agent_service import TravelPlanningOrchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -18,33 +18,34 @@ def generate_and_save_itinerary(db: Session, trip_id: int, current_user_id: int)
     4. Saves the generated itinerary (days JSON & total_estimated_cost) into the database.
     5. Returns the itinerary.
     """
-    # 1. Fetch trip and check permissions
     trip = db.query(Trip).filter(Trip.id == trip_id, Trip.user_id == current_user_id).first()
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
 
-    # 2. Check if an itinerary already exists for this trip
     existing = db.query(Itinerary).filter(Itinerary.trip_id == trip_id).first()
     if existing:
         raise HTTPException(status_code=400, detail="Itinerary already exists for this trip")
 
-    # 3. Generate itinerary via AI Service
-    logger.info(f"Generating itinerary for trip {trip_id} (destination: {trip.destination})...")
+    logger.info("Generating itinerary")
     try:
-        generated = ai_service.generate_itinerary(
-            destination=trip.destination,
-            days=trip.days,
-            budget=trip.budget,
-            trip_style=trip.trip_style
+        request = (
+            f"Plan a {trip.days}-day trip to {trip.destination}. "
+            f"Travel style: {trip.trip_style or 'general sightseeing'}. "
+            f"Budget: {trip.budget if trip.budget is not None else 'flexible'}. "
+            "Use travel knowledge and weather information when relevant."
         )
-    except Exception as e:
-        logger.error(f"Failed to generate itinerary: {str(e)}", exc_info=True)
+        generated = TravelPlanningOrchestrator().invoke(
+            request,
+            expected_destination=trip.destination,
+            expected_days=trip.days,
+        ).model_dump()
+    except Exception:
+        logger.error("Failed to generate itinerary")
         raise HTTPException(
             status_code=502,
-            detail=f"AI generation failed: {str(e)}"
+            detail="AI generation failed"
         )
 
-    # 4. Save to database
     try:
         itinerary = Itinerary(
             trip_id=trip_id,
@@ -57,7 +58,8 @@ def generate_and_save_itinerary(db: Session, trip_id: int, current_user_id: int)
         return itinerary
     except Exception as e:
         db.rollback()
-        logger.critical(f"Database error saving itinerary for trip {trip_id}: {str(e)}", exc_info=True)
+        # Log only the exception type: database error messages embed SQL parameters.
+        logger.critical("Database error saving itinerary for trip %s (%s)", trip_id, type(e).__name__)
         raise HTTPException(
             status_code=500,
             detail="Failed to save the generated itinerary to the database."

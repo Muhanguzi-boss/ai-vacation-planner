@@ -1,0 +1,3 @@
+# Optional dependencies for the separately-run, model-based evaluation suite.
+# Install the application requirements separately before running evaluations.
+deepeval>=2.0,<4.0
