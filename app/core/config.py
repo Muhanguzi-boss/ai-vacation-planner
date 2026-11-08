@@ -1,5 +1,4 @@
 from pydantic import ConfigDict
-from typing import Optional
 from pydantic_settings import BaseSettings
 
 
@@ -13,9 +12,7 @@ class Settings(BaseSettings):
     KNOWLEDGE_BASE_PATH: str = "data/knowledge"
     VECTOR_STORE_PATH: str = "data/vector_store.db"
     EMBEDDING_PROVIDER: str = "local"
-    EMBEDDING_MODEL: str = "text-embedding-3-small"
     LOCAL_EMBEDDING_DIMENSIONS: int = 2048
-    OPENAI_API_KEY: Optional[str] = None
     KNOWLEDGE_CHUNK_SIZE: int = 900
     KNOWLEDGE_CHUNK_OVERLAP: int = 120
     KNOWLEDGE_TOP_K: int = 5
@@ -31,6 +28,12 @@ class Settings(BaseSettings):
     MAX_AUDIO_DURATION_SECONDS: int = 300
     TELEMETRY_ENABLED: bool = True
     TELEMETRY_LOG_ENABLED: bool = True
+    DD_METRICS_ENABLED: bool = False
+    DD_AGENT_HOST: str = "localhost"
+    DD_DOGSTATSD_PORT: int = 8125
+    DD_SERVICE: str = "ai-vacation-planner"
+    DD_ENV: str = "local"
+    DD_VERSION: str = "1.0.0"
 
 
 settings = Settings()

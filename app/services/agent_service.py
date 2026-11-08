@@ -14,8 +14,10 @@ from langgraph.prebuilt import ToolNode
 from app.core.telemetry import (
     AI_GENERATION,
     FAILURE,
+    LLM_MODEL_INIT,
     NO_ERROR,
     SUCCESS,
+    TOOL_EXECUTION,
     elapsed_ms,
     exception_category,
     model_tag,
@@ -49,6 +51,21 @@ class OrchestrationError(RuntimeError):
     """Raised when the travel-planning graph cannot complete."""
 
 
+class ModelInitializationError(ValueError):
+    """Raised when the Anthropic chat model cannot be created (for example, no API key).
+
+    Subclasses ``ValueError`` so existing callers that handle the previous ``ValueError``
+    keep working. The message is generic; provider details are never included.
+    """
+
+
+def _record_model_init(model_name: Any, outcome: str, category: str) -> None:
+    telemetry.emit(
+        LLM_MODEL_INIT,
+        tags={"model": model_name if isinstance(model_name, str) else "unknown", "outcome": outcome, "error_category": category},
+    )
+
+
 class TravelPlanningOrchestrator:
     def __init__(
         self,
@@ -56,31 +73,64 @@ class TravelPlanningOrchestrator:
         tools: list[BaseTool] | None = None,
     ) -> None:
         self.tools = tools or default_travel_tools()
-        self.model = model or self._create_anthropic_model()
+        try:
+            self.model = model or self._create_anthropic_model()
+        except Exception as exc:
+            # The request lifecycle fails before any generation starts; record it as a
+            # failed generation so the failure is visible next to other generation errors.
+            telemetry.emit(
+                AI_GENERATION,
+                tags={
+                    "workflow": "travel_planning",
+                    "model": ai_service.anthropic_model,
+                    "outcome": FAILURE,
+                    "error_category": exception_category(exc),
+                },
+            )
+            raise
         self.graph = self._build_graph()
 
     @staticmethod
     def _create_anthropic_model() -> ChatAnthropic:
+        model_name = ai_service.anthropic_model
         api_key = ai_service.anthropic_key
         if not api_key:
-            raise ValueError("ANTHROPIC_API_KEY is required for travel orchestration")
+            _record_model_init(model_name, FAILURE, "missing_api_key")
+            raise ModelInitializationError("ANTHROPIC_API_KEY is required for travel orchestration")
 
-        return ChatAnthropic(
-            model_name=ai_service.anthropic_model,
-            api_key=api_key,
-            temperature=ai_service.temperature,
-            max_tokens_to_sample=ai_service.max_tokens,
-            callbacks=[llm_telemetry_callback],
-        )
+        try:
+            model = ChatAnthropic(
+                model_name=model_name,
+                api_key=api_key,
+                temperature=ai_service.temperature,
+                max_tokens_to_sample=ai_service.max_tokens,
+                callbacks=[llm_telemetry_callback],
+            )
+        except Exception as exc:
+            _record_model_init(model_name, FAILURE, exception_category(exc))
+            # ``from None``: a constructor validation error can echo its inputs, including the key.
+            raise ModelInitializationError("Anthropic chat model could not be initialized") from None
+        _record_model_init(model_name, SUCCESS, NO_ERROR)
+        return model
 
     def _build_graph(self):
         model_with_tools = self.model.bind_tools(self.tools)
         structured_model = self.model.with_structured_output(GeneratedItinerary)
         tool_node = ToolNode(self.tools, handle_tool_errors=False)
+        allowed_tool_names = {tool.name for tool in self.tools}
 
         def plan(state: TravelPlanningState) -> dict[str, Any]:
             response = model_with_tools.invoke(state["messages"])
             tool_iterations = state["tool_iterations"]
+            for call in getattr(response, "tool_calls", None) or []:
+                if call.get("name") not in allowed_tool_names:
+                    # ToolNode answers unknown tools with an error message instead of
+                    # running anything; record the rejected action. The requested name is
+                    # model-controlled text, so it is not used as a tag value.
+                    telemetry.emit(
+                        TOOL_EXECUTION,
+                        tags={"tool": "unsupported", "outcome": FAILURE, "error_category": "unsupported_tool"},
+                    )
             if getattr(response, "tool_calls", None):
                 tool_iterations += 1
                 if tool_iterations > MAX_TOOL_ITERATIONS:

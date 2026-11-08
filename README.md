@@ -1,13 +1,14 @@
 # AI Vacation Planner API
 
-Backend REST API built with FastAPI for planning vacations end-to-end: users manage trips, and an Anthropic-powered LangGraph agent generates structured day-by-day itineraries using a RAG travel knowledge base and a weather tool (optionally served over MCP). Phase 6 adds image understanding, local speech-to-text and text-to-speech, spoken itinerary requests, and spoken itineraries.
+Backend REST API built with FastAPI for planning vacations end-to-end: users manage trips, and an Anthropic-powered LangGraph agent generates structured day-by-day itineraries using a RAG travel knowledge base and a weather tool (optionally served over MCP). Phase 6 adds image understanding, local speech-to-text and text-to-speech, spoken itinerary requests, and spoken itineraries. Phase 7 adds AI guardrails, a golden evaluation dataset with an optional DeepEval suite, broader offline tests, privacy-safe telemetry, and optional Datadog metrics with a dashboard.
 
 ## Provider Architecture
 
 - **LLM provider: Anthropic only.** Itinerary planning (LangGraph via `langchain-anthropic`) and image understanding use the Claude model in `ANTHROPIC_MODEL`. There is no fallback to another LLM provider.
-- **Embeddings: local by default.** The RAG store uses a deterministic local hashing embedder. OpenAI is used **only** as an optional embedding provider (`EMBEDDING_PROVIDER=openai`), which is why `openai` remains in `requirements.txt`; it is never used for text generation.
+- **Embeddings: local only.** The RAG store uses a deterministic local hashing embedder computed in-process; no embedding API or key is used. `EMBEDDING_PROVIDER` accepts only `local`, and any other value is rejected.
 - **Speech:** faster-whisper (speech-to-text) and pyttsx3/SAPI5 (text-to-speech) run locally; no speech API is called.
 - **Weather:** a local stub, or Open-Meteo through the MCP weather server.
+- **Observability:** structured JSON telemetry on stderr; optional Datadog metrics over DogStatsD (disabled by default). No Datadog library is required.
 
 `app/services/ai_service.py` holds the shared Anthropic configuration. Its `generate_itinerary()` method is the original Phase 2 single-prompt generator (Anthropic, with a rule-based fallback); it is kept as that phase's baseline, and the API generates itineraries through the Phase 5 LangGraph orchestrator instead.
 
@@ -55,6 +56,12 @@ Backend REST API built with FastAPI for planning vacations end-to-end: users man
    # Edit .env with your database credentials and ANTHROPIC_API_KEY
 ```
 
+   Starting the app loads the project-root `.env` into the process environment automatically
+   (`app/core/env.py`, called first in `app/main.py`), so the Anthropic settings
+   (`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `LLM_TEMPERATURE`, `LLM_MAX_TOKENS`) are picked up
+   without exporting them in the shell. Variables already set in the process environment take
+   precedence over `.env`; values are never printed or logged.
+
    Text-to-speech uses Windows SAPI5 voices. The first speech-to-text request downloads the
    Whisper model (about 145 MB for `base`) into the Hugging Face cache.
 
@@ -68,42 +75,17 @@ Backend REST API built with FastAPI for planning vacations end-to-end: users man
    **OAuth2PasswordBearer** login form (username/password) or a pasted JWT under **bearerAuth**
    in the Authorize dialog.
 
-7. Run the tests (no API keys, network access, Whisper model, or Windows voices are required)
+7. Run the offline tests (no API keys, network access, Whisper model, or Windows voices are required)
 
 ```bash
    python -m pytest tests
 ```
 
-### Optional model-based itinerary evaluation
+   pytest keeps Datadog metrics out of the test run even if your `.env` or shell enables them
+   (see [Phase 7 → Testing](#c-testing)).
 
-The versioned golden dataset is stored at
-[`data/evaluation/golden-itineraries-v1.json`](data/evaluation/golden-itineraries-v1.json).
-Offline tests validate its version, schema, destination/duration coverage, and expected
-daily schedules without contacting an LLM.
-
-The DeepEval suite is intentionally named and located so it is **not collected** by
-`python -m pytest tests`. It generates itineraries through the existing Anthropic-backed
-LangGraph flow and uses an Anthropic judge for four GEval criteria: relevance,
-completeness, consistency, and output-structure adherence. Each criterion has a minimum
-score threshold of **0.70**. Deterministic Pydantic, destination, duration, and three-period
-daily-schedule checks run before model-based scoring.
-
-Install the optional evaluation dependency in the active environment:
-
-```bash
-pip install -r requirements-evaluation.txt
-```
-
-Set `ANTHROPIC_API_KEY` and, optionally, `ANTHROPIC_MODEL`, then run only the evaluation
-suite (from the repository root):
-
-```bash
-python -m pytest tests/evaluation/deepeval_itinerary_eval.py -v
-```
-
-This command makes paid/network model calls for each golden case and its four evaluations.
-Do not use it as part of routine offline tests or CI unless that cost and network access
-are explicitly intended. `OPENAI_API_KEY` is not used for generation or judging.
+8. Optional, **paid**: run the model-based DeepEval evaluation. See
+   [Phase 7 → Evaluation](#a-evaluation) before running it.
 
 ## Phase 4: RAG & Knowledge Systems
 
@@ -117,7 +99,7 @@ Documents -> chunks -> embeddings -> SQLite vector store
 
 Seed Markdown documents live in `data/knowledge/`. Ingestion normalizes each document, splits it into overlapping chunks, and keeps destination, source, category, and chunk index metadata.
 
-The default embedding provider is a deterministic local hashing embedder, so the project can be reviewed without paid APIs. Set `EMBEDDING_PROVIDER=openai` to use OpenAI embeddings with `OPENAI_API_KEY` and `EMBEDDING_MODEL`.
+Embeddings are produced by a deterministic local hashing embedder, so the project runs without any paid embedding API. It is the only supported embedding provider.
 
 The vector store is a local SQLite database at `data/vector_store.db`. It stores chunk text, metadata, and embeddings, then ranks results using cosine similarity. PostgreSQL remains the application database.
 
@@ -147,8 +129,7 @@ As of Phase 5, `POST /itineraries` no longer calls the knowledge base directly f
 | ---------------------------- | ------------------------ | -------------------------- |
 | `KNOWLEDGE_BASE_PATH`        | `data/knowledge`         | Seed document directory    |
 | `VECTOR_STORE_PATH`          | `data/vector_store.db`   | SQLite vector store path   |
-| `EMBEDDING_PROVIDER`         | `local`                  | `local` or `openai`        |
-| `EMBEDDING_MODEL`            | `text-embedding-3-small` | Remote embedding model     |
+| `EMBEDDING_PROVIDER`         | `local`                  | Must be `local`            |
 | `LOCAL_EMBEDDING_DIMENSIONS` | `2048`                   | Local vector size          |
 | `KNOWLEDGE_CHUNK_SIZE`       | `900`                    | Maximum chunk characters   |
 | `KNOWLEDGE_CHUNK_OVERLAP`    | `120`                    | Context overlap characters |
@@ -311,6 +292,158 @@ Errors use generic messages (`"AI image analysis failed"`, `"Transcription faile
 - Text-to-speech uses Windows SAPI5 and the default voice; other platforms need a different pyttsx3 driver (e.g. `espeak-ng` on Linux).
 - `/speech/plan` returns an unsaved itinerary.
 
+## Phase 7: Evaluation, Security & Testing
+
+Phase 7 makes the AI workflow measurable and safer without changing the provider architecture
+(Anthropic for generation and judging, local embeddings):
+
+- **Evaluation:** a versioned golden dataset, offline dataset checks, and an optional DeepEval suite.
+- **Safety:** prompt-injection defences, restricted tool use, and deterministic validation of every generated itinerary.
+- **Testing:** offline tests for the API routes, the LangGraph workflow, guardrails, telemetry and Datadog formatting.
+- **Observability:** latency, model, token, tool and failure telemetry, with optional Datadog metrics and a dashboard.
+
+### A. Evaluation
+
+The versioned golden dataset is stored at
+[`data/evaluation/golden-itineraries-v1.json`](data/evaluation/golden-itineraries-v1.json)
+(version `1.0.0`, five cases: Tokyo, Paris, Lisbon, Banff and Rome, 2–5 days, fixed and
+flexible budgets, five travel styles). Each case has a request, destination, duration, budget,
+travel style and a reference itinerary. Offline tests (`tests/test_golden_dataset.py`) validate
+its version, schema, destination/duration coverage, and expected daily schedules without
+contacting an LLM.
+
+The DeepEval suite (`tests/evaluation/deepeval_itinerary_eval.py`) is intentionally named so it is
+**not collected** by `python -m pytest tests`. For each golden case it generates an itinerary
+through the existing Anthropic-backed LangGraph flow, then:
+
+1. runs deterministic checks first: Pydantic validation, destination and duration match, and at
+   least three activities per day covering morning, afternoon and evening;
+2. scores the output with an Anthropic judge (`ChatAnthropic`, temperature 0) on four GEval
+   criteria, each with a minimum score of **0.70**: relevance, completeness, consistency, and
+   output-structure adherence.
+
+Install the optional evaluation dependency in the active environment:
+
+```bash
+pip install -r requirements-evaluation.txt
+```
+
+Then run only the evaluation suite (from the repository root):
+
+```bash
+python -m pytest tests/evaluation/deepeval_itinerary_eval.py -v
+```
+
+> **Warning — paid API calls.** The suite loads the project `.env` automatically. If
+> `ANTHROPIC_API_KEY` is set there (or in your shell), the command immediately makes paid
+> Anthropic calls: the itinerary generation for every golden case plus the judge calls for its
+> four criteria. It is skipped only when no key is available or `deepeval` is not installed. Do
+> not use it in routine offline testing or CI unless that cost and network access are intended.
+> The model is `ANTHROPIC_MODEL` (default `claude-haiku-4-5`) for both generation and judging;
+> no other provider key is used.
+
+### B. Safety and guardrails
+
+Implemented in `app/services/agent_service.py`, `app/services/ai_service.py` and the controllers:
+
+- **Prompt injection:** trusted system instructions restrict the agent to travel planning and
+  forbid revealing instructions or internal data. The user request is passed as untrusted data
+  (`{"untrusted_user_travel_request": ...}`), and knowledge results and tool outputs are treated
+  as untrusted reference data whose embedded instructions must be ignored. The vision prompt
+  tells the model to ignore instructions written in images.
+- **Restricted actions:** the planner can call only `travel_knowledge_search` and
+  `travel_weather`. A request for any other tool is not executed and is recorded as
+  `unsupported_tool`. Planner→tool loops are capped at `MAX_TOOL_ITERATIONS = 3`.
+- **Rejecting invalid output:** every itinerary is validated by `GeneratedItinerary` (non-blank
+  fields, at least one day and one activity per day, days numbered consecutively from 1). For
+  `POST /itineraries`, the destination (case- and whitespace-insensitive) and the number of days
+  must also match the trip. Invalid output is rejected with HTTP 502 `"AI generation failed"`
+  and nothing is saved.
+- **Safe errors and logs:** clients receive generic error messages. Telemetry records only the
+  exception type. The itinerary-generation, itinerary-save and image-analysis error logs do not
+  include exception messages, and the Anthropic model-creation error never carries the
+  provider's message (which could echo the API key).
+
+### C. Testing
+
+Run the offline suite from the repository root:
+
+```bash
+python -m pytest tests
+```
+
+It needs no API keys, Whisper model, Windows voices or PostgreSQL connection. `DATABASE_URL` and
+`SECRET_KEY` must still be set (for example in `.env` from setup step 4) because the settings are
+loaded at import time; no database connection is made. LLMs, MCP, Whisper and SAPI5 are replaced
+with fakes, and the itinerary route tests use in-memory SQLite. It covers the
+itinerary, audio, vision and speech routes; the LangGraph workflow (tool calls, injection
+handling, tool limits, invalid output, destination/duration mismatches); the golden dataset;
+local embeddings; `.env` loading; and telemetry and Datadog formatting, privacy and failure
+isolation. Apart from loopback UDP in the Datadog tests (a datagram to a socket the test binds
+itself on `127.0.0.1`), no network access is used.
+
+**Datadog isolation:** `tests/conftest.py` sets `DD_METRICS_ENABLED=false` in the test process
+before the application is imported. Process environment variables take precedence over `.env`,
+so a developer's `DD_METRICS_ENABLED=true` cannot make the test run send metrics to a local
+Agent or a Datadog account. An automatic check also fails any test that leaves a Datadog sink on
+the shared telemetry object. The Datadog tests build their own sinks with fake or loopback
+sockets. This isolation applies when tests run through pytest.
+
+### D. Observability
+
+`app/core/telemetry.py` records privacy-safe events:
+
+| Event | What it measures |
+| --- | --- |
+| `http.request` | Every API request: latency, method, route template, status, error category |
+| `ai.generation` | Itinerary planning and image analysis: latency, model, outcome, error category, tool iterations |
+| `llm.request` | Each Anthropic call: latency, model, LangGraph node, input/output/total tokens when reported |
+| `llm.model_init` | Anthropic model creation, including a missing API key |
+| `tool.execution` | Each tool call: latency, tool name, outcome, error category |
+| `mcp.weather.fallback` | MCP weather failures answered by the local fallback |
+
+- **Structured logs:** by default (`TELEMETRY_LOG_ENABLED=true`), each event is written as one
+  JSON line to stderr (logger `vacation_planner.telemetry`).
+- **Datadog metrics (optional):** with `DD_METRICS_ENABLED=true`, the same events are sent to a
+  Datadog Agent over DogStatsD (UDP) using only the Python standard library, as
+  `vacation_planner.<event>.count` plus `vacation_planner.<event>.<measurement>` (latencies are
+  distributions, tokens are counts). The application needs no Datadog API key; the Agent holds it.
+  Sending never affects requests: failures are ignored.
+- **Privacy:** only catalogued tags and measurements are sent; routes are templates such as
+  `/itineraries/:trip_id`. Prompts, transcripts, raw paths, query strings, user data, exception
+  messages and keys are never recorded.
+- **Dashboard:** [`observability/datadog-dashboard.json`](observability/datadog-dashboard.json)
+  covers HTTP traffic and failures, AI generation, Anthropic latency and token usage, model
+  initialisation failures, tools and MCP fallbacks.
+
+See [`observability/README.md`](observability/README.md) for running a Datadog Agent, the full
+metric and tag list, importing the dashboard, and enabling percentiles. The integration is
+verified by offline tests only; delivery to a real Datadog account has not been verified in this
+repository.
+
+### E. Configuration
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `TELEMETRY_ENABLED` | `true` | Master switch for all telemetry (JSON logs and metrics) |
+| `TELEMETRY_LOG_ENABLED` | `true` | JSON telemetry lines on stderr |
+| `DD_METRICS_ENABLED` | `false` | Send metrics to a Datadog Agent over DogStatsD (**disabled by default**) |
+| `DD_AGENT_HOST` | `localhost` | Agent host (IPv4 is preferred when it resolves to both) |
+| `DD_DOGSTATSD_PORT` | `8125` | Agent DogStatsD UDP port |
+| `DD_SERVICE` | `ai-vacation-planner` | `service` tag on every metric |
+| `DD_ENV` | `local` | `env` tag on every metric |
+| `DD_VERSION` | `1.0.0` | `version` tag on every metric |
+
+### F. Known limitations
+
+- The morning/afternoon/evening schedule rule is checked by the evaluation suite, not by the
+  production validator.
+- Destination and duration matching is applied to `POST /itineraries`; `/speech/plan` relies on
+  schema validation only.
+- Auth, trips, `GET /itineraries/{trip_id}` and knowledge-search routes have no dedicated route tests.
+- The DeepEval suite has not been run as part of this repository's offline verification, and the
+  same model generates and judges itineraries.
+
 ## Architecture
 
 ```text
@@ -330,23 +463,31 @@ Separate Phase 6 services, called from their own routes:
     Vision          vision_service         → Anthropic Claude (structured output)
     Speech-to-text  transcription_service  → faster-whisper (local)
     Text-to-speech  speech_service         → pyttsx3 / SAPI5 (local)
+
+Phase 7 telemetry (app/core/telemetry.py, app/services/llm_telemetry.py):
+    request middleware + LLM/tool callbacks + generation events
+        → JSON lines on stderr (default)
+        → DogStatsD over UDP → Datadog Agent → Datadog (optional, DD_METRICS_ENABLED=true)
 ```
 
 ```text
 app/
 ├── api/routes/   # auth, trips, itineraries (+ audio), knowledge, vision, speech
 ├── controllers/  # Itinerary orchestration between routes, DB, and the AI agent
-├── core/         # Config, security (JWT, hashing)
+├── core/         # Config, .env loading, security (JWT, hashing), telemetry and Datadog sink
 ├── db/           # Database engine and session
 ├── models/       # SQLAlchemy ORM models
 ├── schemas/      # Pydantic request/response schemas
-├── services/     # AI, RAG, LangGraph agent, vision, speech, transcription, narration, MCP client
+├── services/     # AI, RAG, LangGraph agent, LLM/tool telemetry callbacks, vision, speech, transcription, narration, MCP client
 ├── tools/        # LangChain tools (RAG, weather) and the MCP weather adapter
-└── main.py       # App entrypoint
+└── main.py       # App entrypoint (loads .env first)
 mcp_servers/      # Standalone MCP weather server (Open-Meteo)
 data/knowledge/   # Seed travel documents
+data/evaluation/  # Versioned golden itinerary dataset
+observability/    # Datadog dashboard JSON and setup guide
 scripts/          # Repeatable ingestion commands
-tests/            # Unit and integration tests (fakes for LLM, MCP, Whisper, SAPI5)
+tests/            # Offline unit and integration tests (fakes for LLM, MCP, Whisper, SAPI5)
+tests/evaluation/ # Optional, paid DeepEval suite (not collected by `pytest tests`)
 ```
 
 ## API Endpoints

@@ -1,10 +1,16 @@
-from fastapi import FastAPI
-from fastapi.openapi.utils import get_openapi
+# Load .env into os.environ before any app module is imported: ai_service reads the
+# Anthropic configuration from the environment at import time.
+from app.core.env import load_local_env
 
-from app.core.telemetry import RequestTelemetryMiddleware
-from app.db.database import engine, Base
-from app.models import user, trip, itinerary
-from app.api.routes import auth, trips, itineraries, knowledge, vision, speech
+load_local_env()
+
+from fastapi import FastAPI  # noqa: E402
+from fastapi.openapi.utils import get_openapi  # noqa: E402
+
+from app.core.telemetry import RequestTelemetryMiddleware  # noqa: E402
+from app.db.database import engine, Base  # noqa: E402
+from app.models import user, trip, itinerary  # noqa: E402
+from app.api.routes import auth, trips, itineraries, knowledge, vision, speech  # noqa: E402
 
 Base.metadata.create_all(bind=engine)
 

@@ -1,0 +1,851 @@
+{
+  "title": "AI Vacation Planner - API, AI generation and tools",
+  "description": "HTTP traffic, AI generation, Anthropic LLM requests (latency, model, tokens), tool execution and failures for the AI Vacation Planner. Built only from metrics emitted by app/core/telemetry.py (prefix vacation_planner.).",
+  "layout_type": "ordered",
+  "template_variables": [
+    {
+      "name": "env",
+      "prefix": "env",
+      "available_values": [],
+      "default": "*"
+    },
+    {
+      "name": "service",
+      "prefix": "service",
+      "available_values": [],
+      "default": "ai-vacation-planner"
+    }
+  ],
+  "widgets": [
+    {
+      "definition": {
+        "type": "group",
+        "title": "Service overview",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "type": "note",
+              "content": "Metrics are sent by the AI Vacation Planner over DogStatsD when `DD_METRICS_ENABLED=true`. Latencies (`*.duration_ms`) are distributions: enable percentiles on them in Metrics Summary for the p50/p95 queries. No prompts, transcripts, raw paths, user data or exception messages are sent; routes are templates.",
+              "background_color": "gray",
+              "font_size": "14",
+              "text_align": "left",
+              "show_tick": false,
+              "has_padding": true
+            }
+          },
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "HTTP requests",
+              "precision": 0,
+              "autoscale": true,
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "q1",
+                      "query": "sum:vacation_planner.http.request.count{$env,$service}.as_count()",
+                      "aggregator": "sum"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q1"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "HTTP failure rate (%)",
+              "precision": 2,
+              "autoscale": true,
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "failed",
+                      "query": "sum:vacation_planner.http.request.count{$env,$service,outcome:failure}.as_count()",
+                      "aggregator": "sum"
+                    },
+                    {
+                      "data_source": "metrics",
+                      "name": "all",
+                      "query": "sum:vacation_planner.http.request.count{$env,$service}.as_count()",
+                      "aggregator": "sum"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "100 * failed / all"
+                    }
+                  ],
+                  "conditional_formats": [
+                    {
+                      "comparator": ">",
+                      "value": 5,
+                      "palette": "white_on_red"
+                    },
+                    {
+                      "comparator": "<=",
+                      "value": 5,
+                      "palette": "white_on_green"
+                    }
+                  ]
+                }
+              ],
+              "custom_unit": "%"
+            }
+          },
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "p95 request latency",
+              "precision": 0,
+              "autoscale": true,
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "q1",
+                      "query": "p95:vacation_planner.http.request.duration_ms{$env,$service}",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q1"
+                    }
+                  ]
+                }
+              ],
+              "custom_unit": "ms"
+            }
+          },
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "AI generations",
+              "precision": 0,
+              "autoscale": true,
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "q1",
+                      "query": "sum:vacation_planner.ai.generation.count{$env,$service}.as_count()",
+                      "aggregator": "sum"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q1"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "AI generation failure rate (%)",
+              "precision": 2,
+              "autoscale": true,
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "failed",
+                      "query": "sum:vacation_planner.ai.generation.count{$env,$service,outcome:failure}.as_count()",
+                      "aggregator": "sum"
+                    },
+                    {
+                      "data_source": "metrics",
+                      "name": "all",
+                      "query": "sum:vacation_planner.ai.generation.count{$env,$service}.as_count()",
+                      "aggregator": "sum"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "100 * failed / all"
+                    }
+                  ],
+                  "conditional_formats": [
+                    {
+                      "comparator": ">",
+                      "value": 10,
+                      "palette": "white_on_red"
+                    },
+                    {
+                      "comparator": "<=",
+                      "value": 10,
+                      "palette": "white_on_green"
+                    }
+                  ]
+                }
+              ],
+              "custom_unit": "%"
+            }
+          },
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "LLM tokens",
+              "precision": 0,
+              "autoscale": true,
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "q1",
+                      "query": "sum:vacation_planner.llm.request.total_tokens{$env,$service}.as_count()",
+                      "aggregator": "sum"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q1"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "group",
+        "title": "HTTP API",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "type": "timeseries",
+              "title": "Requests by status class",
+              "show_legend": true,
+              "legend_layout": "auto",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "q1",
+                      "query": "sum:vacation_planner.http.request.count{$env,$service} by {status_class}.as_count()"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q1"
+                    }
+                  ],
+                  "display_type": "bars"
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "type": "timeseries",
+              "title": "Request latency (ms)",
+              "show_legend": true,
+              "legend_layout": "auto",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "p50",
+                      "query": "p50:vacation_planner.http.request.duration_ms{$env,$service}"
+                    },
+                    {
+                      "data_source": "metrics",
+                      "name": "p95",
+                      "query": "p95:vacation_planner.http.request.duration_ms{$env,$service}"
+                    },
+                    {
+                      "data_source": "metrics",
+                      "name": "avg",
+                      "query": "avg:vacation_planner.http.request.duration_ms{$env,$service}"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "p50",
+                      "alias": "p50"
+                    },
+                    {
+                      "formula": "p95",
+                      "alias": "p95"
+                    },
+                    {
+                      "formula": "avg",
+                      "alias": "avg"
+                    }
+                  ],
+                  "display_type": "line"
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "type": "toplist",
+              "title": "p95 latency by route (ms)",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "q1",
+                      "query": "p95:vacation_planner.http.request.duration_ms{$env,$service} by {method,route}",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q1",
+                      "limit": {
+                        "count": 10,
+                        "order": "desc"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "type": "toplist",
+              "title": "Requests by route",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "q1",
+                      "query": "sum:vacation_planner.http.request.count{$env,$service} by {method,route}.as_count()",
+                      "aggregator": "sum"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q1",
+                      "limit": {
+                        "count": 10,
+                        "order": "desc"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "type": "toplist",
+              "title": "Failed requests by error category",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "q1",
+                      "query": "sum:vacation_planner.http.request.count{$env,$service,outcome:failure} by {error_category}.as_count()",
+                      "aggregator": "sum"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q1",
+                      "limit": {
+                        "count": 10,
+                        "order": "desc"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "type": "toplist",
+              "title": "Failed requests by route and status",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "q1",
+                      "query": "sum:vacation_planner.http.request.count{$env,$service,outcome:failure} by {route,status_code}.as_count()",
+                      "aggregator": "sum"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q1",
+                      "limit": {
+                        "count": 10,
+                        "order": "desc"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "group",
+        "title": "AI generation (itinerary agent and vision)",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "type": "timeseries",
+              "title": "Generations by workflow and outcome",
+              "show_legend": true,
+              "legend_layout": "auto",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "q1",
+                      "query": "sum:vacation_planner.ai.generation.count{$env,$service} by {workflow,outcome}.as_count()"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q1"
+                    }
+                  ],
+                  "display_type": "bars"
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "type": "timeseries",
+              "title": "Generation latency p95 by workflow (ms)",
+              "show_legend": true,
+              "legend_layout": "auto",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "q1",
+                      "query": "p95:vacation_planner.ai.generation.duration_ms{$env,$service} by {workflow}"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q1"
+                    }
+                  ],
+                  "display_type": "line"
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "type": "toplist",
+              "title": "Generation failures by workflow and error category",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "q1",
+                      "query": "sum:vacation_planner.ai.generation.count{$env,$service,outcome:failure} by {workflow,error_category}.as_count()",
+                      "aggregator": "sum"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q1",
+                      "limit": {
+                        "count": 10,
+                        "order": "desc"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "Avg tool iterations per successful itinerary",
+              "precision": 2,
+              "autoscale": true,
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "iterations",
+                      "query": "sum:vacation_planner.ai.generation.tool_iterations{$env,$service,workflow:travel_planning,outcome:success}.as_count()",
+                      "aggregator": "sum"
+                    },
+                    {
+                      "data_source": "metrics",
+                      "name": "generations",
+                      "query": "sum:vacation_planner.ai.generation.count{$env,$service,workflow:travel_planning,outcome:success}.as_count()",
+                      "aggregator": "sum"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "iterations / generations"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "group",
+        "title": "LLM requests (Anthropic)",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "type": "timeseries",
+              "title": "LLM requests by model and outcome",
+              "show_legend": true,
+              "legend_layout": "auto",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "q1",
+                      "query": "sum:vacation_planner.llm.request.count{$env,$service} by {model,outcome}.as_count()"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q1"
+                    }
+                  ],
+                  "display_type": "bars"
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "type": "timeseries",
+              "title": "LLM latency p95 by graph node (ms)",
+              "show_legend": true,
+              "legend_layout": "auto",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "q1",
+                      "query": "p95:vacation_planner.llm.request.duration_ms{$env,$service} by {node}"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q1"
+                    }
+                  ],
+                  "display_type": "line"
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "type": "timeseries",
+              "title": "Token usage by model",
+              "show_legend": true,
+              "legend_layout": "auto",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "input",
+                      "query": "sum:vacation_planner.llm.request.input_tokens{$env,$service} by {model}.as_count()"
+                    },
+                    {
+                      "data_source": "metrics",
+                      "name": "output",
+                      "query": "sum:vacation_planner.llm.request.output_tokens{$env,$service} by {model}.as_count()"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "input",
+                      "alias": "input tokens"
+                    },
+                    {
+                      "formula": "output",
+                      "alias": "output tokens"
+                    }
+                  ],
+                  "display_type": "bars"
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "Avg tokens per successful LLM request",
+              "precision": 0,
+              "autoscale": true,
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "tokens",
+                      "query": "sum:vacation_planner.llm.request.total_tokens{$env,$service,outcome:success}.as_count()",
+                      "aggregator": "sum"
+                    },
+                    {
+                      "data_source": "metrics",
+                      "name": "requests",
+                      "query": "sum:vacation_planner.llm.request.count{$env,$service,outcome:success}.as_count()",
+                      "aggregator": "sum"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "tokens / requests"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "type": "toplist",
+              "title": "LLM failures by error category",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "q1",
+                      "query": "sum:vacation_planner.llm.request.count{$env,$service,outcome:failure} by {model,error_category}.as_count()",
+                      "aggregator": "sum"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q1",
+                      "limit": {
+                        "count": 10,
+                        "order": "desc"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "type": "toplist",
+              "title": "Model initialization failures",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "q1",
+                      "query": "sum:vacation_planner.llm.model_init.count{$env,$service,outcome:failure} by {model,error_category}.as_count()",
+                      "aggregator": "sum"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q1",
+                      "limit": {
+                        "count": 10,
+                        "order": "desc"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "group",
+        "title": "Tools and MCP",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "type": "timeseries",
+              "title": "Tool executions by tool and outcome",
+              "show_legend": true,
+              "legend_layout": "auto",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "q1",
+                      "query": "sum:vacation_planner.tool.execution.count{$env,$service} by {tool,outcome}.as_count()"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q1"
+                    }
+                  ],
+                  "display_type": "bars"
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "type": "timeseries",
+              "title": "Tool latency p95 by tool (ms)",
+              "show_legend": true,
+              "legend_layout": "auto",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "q1",
+                      "query": "p95:vacation_planner.tool.execution.duration_ms{$env,$service} by {tool}"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q1"
+                    }
+                  ],
+                  "display_type": "line"
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "type": "toplist",
+              "title": "Tool failures by tool and error category",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "q1",
+                      "query": "sum:vacation_planner.tool.execution.count{$env,$service,outcome:failure} by {tool,error_category}.as_count()",
+                      "aggregator": "sum"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q1",
+                      "limit": {
+                        "count": 10,
+                        "order": "desc"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "type": "timeseries",
+              "title": "MCP weather fallbacks by failure type",
+              "show_legend": true,
+              "legend_layout": "auto",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "q1",
+                      "query": "sum:vacation_planner.mcp.weather.fallback.count{$env,$service} by {failure_type}.as_count()"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "q1"
+                    }
+                  ],
+                  "display_type": "bars"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "notify_list": [],
+  "reflow_type": "auto"
+}

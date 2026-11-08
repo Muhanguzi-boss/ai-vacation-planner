@@ -6,9 +6,13 @@ from pathlib import Path
 
 import pytest
 
+from app.core.env import load_local_env
 from app.services.ai_service import GeneratedItinerary
 from app.services.agent_service import TravelPlanningOrchestrator
 
+# Read ANTHROPIC_API_KEY / ANTHROPIC_MODEL from the project .env, as the application does.
+# Variables already exported in the shell take precedence.
+load_local_env()
 
 DATASET_PATH = (
     Path(__file__).resolve().parents[2]

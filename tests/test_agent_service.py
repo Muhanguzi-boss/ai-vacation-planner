@@ -401,6 +401,68 @@ class AgentServiceTests(unittest.TestCase):
         self.assertIn("tool limit", str(context.exception))
 
 
+class StubGraph:
+    def __init__(self, result):
+        self.result = result
+        self.calls = []
+
+    def invoke(self, state, config=None):
+        self.calls.append(state)
+        return self.result
+
+
+class GraphResultExtractionTests(unittest.TestCase):
+    """invoke() must return the itinerary taken from the graph result."""
+
+    def setUp(self):
+        # A harmless stub tool: an empty list would make the orchestrator use the default
+        # travel tools instead. It records calls so the tests can prove it never ran.
+        self.stub_calls = []
+        self.stub_tools = [
+            create_weather_tool(lambda location: self.stub_calls.append(location) or {"summary": "sunny"})
+        ]
+
+    def orchestrator_with_graph_result(self, result):
+        orchestrator = TravelPlanningOrchestrator(model=FakeModel([]), tools=self.stub_tools)
+        self.assertIs(orchestrator.tools, self.stub_tools)
+        orchestrator.graph = StubGraph(result)
+        return orchestrator
+
+    def test_returns_the_itinerary_from_a_successful_graph_result(self):
+        generated = sample_itinerary("Rome", 2)
+        orchestrator = self.orchestrator_with_graph_result({"itinerary": generated, "tool_iterations": 1})
+
+        result = orchestrator.invoke("Plan two days in Rome.")
+
+        self.assertIs(result, generated)
+        self.assertIsInstance(result, GeneratedItinerary)
+        self.assertEqual(len(orchestrator.graph.calls), 1)
+
+    def test_end_to_end_graph_returns_the_finalized_itinerary(self):
+        generated = sample_itinerary("Paris", 3)
+        model = FakeModel([AIMessage(content="No tools needed")], final_response=generated)
+
+        orchestrator = TravelPlanningOrchestrator(model=model, tools=self.stub_tools)
+        self.assertIs(orchestrator.tools, self.stub_tools)
+
+        result = orchestrator.invoke(
+            "Plan three days in Paris.", expected_destination="Paris", expected_days=3
+        )
+
+        self.assertIsInstance(result, GeneratedItinerary)
+        self.assertEqual(result.model_dump(), generated.model_dump())
+        self.assertEqual([tool.name for tool in model.tools], ["travel_weather"])
+        self.assertEqual(self.stub_calls, [])  # the planner requested no tools
+
+    def test_missing_or_invalid_itinerary_in_graph_result_is_rejected(self):
+        for graph_result in ({}, {"itinerary": None}, {"itinerary": {"destination": "Rome"}}):
+            with self.subTest(graph_result=graph_result):
+                orchestrator = self.orchestrator_with_graph_result(graph_result)
+                with self.assertRaises(OrchestrationError) as context:
+                    orchestrator.invoke("Plan Rome.")
+                self.assertIn("no valid itinerary", str(context.exception))
+
+
 class KnowledgeServiceStub:
     def search(self, query, top_k=5):
         return [

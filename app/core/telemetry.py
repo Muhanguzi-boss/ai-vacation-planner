@@ -18,14 +18,17 @@ Privacy contract (enforced here, not left to callers):
 Metric naming (used by the Datadog integration): each event ``<name>`` produces
 ``vacation_planner.<name>.count`` and one ``vacation_planner.<name>.<measurement>`` per
 measurement. Measurements ending in ``_ms`` are latency distributions in milliseconds; the
-others are summed counts (for example token usage).
+others are summed counts (for example token usage). ``EVENT_CATALOG`` lists every event with
+its tags and measurements; the DogStatsD sink only sends what the catalog declares.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import math
 import re
+import socket
 import sys
 import threading
 import time
@@ -40,6 +43,7 @@ METRIC_PREFIX = "vacation_planner"
 HTTP_REQUEST = "http.request"
 AI_GENERATION = "ai.generation"
 LLM_REQUEST = "llm.request"
+LLM_MODEL_INIT = "llm.model_init"
 TOOL_EXECUTION = "tool.execution"
 MCP_WEATHER_FALLBACK = "mcp.weather.fallback"
 
@@ -63,6 +67,34 @@ ALLOWED_TAG_KEYS = frozenset(
         "failure_type",
     }
 )
+
+# Every event the application emits, with the tags and measurements it may carry.
+EVENT_CATALOG: dict[str, dict[str, frozenset[str]]] = {
+    HTTP_REQUEST: {
+        "tags": frozenset({"method", "route", "status_code", "status_class", "outcome", "error_category"}),
+        "measurements": frozenset({"duration_ms"}),
+    },
+    AI_GENERATION: {
+        "tags": frozenset({"workflow", "model", "outcome", "error_category"}),
+        "measurements": frozenset({"duration_ms", "tool_iterations"}),
+    },
+    LLM_REQUEST: {
+        "tags": frozenset({"model", "node", "outcome", "error_category"}),
+        "measurements": frozenset({"duration_ms", "input_tokens", "output_tokens", "total_tokens"}),
+    },
+    LLM_MODEL_INIT: {
+        "tags": frozenset({"model", "outcome", "error_category"}),
+        "measurements": frozenset(),
+    },
+    TOOL_EXECUTION: {
+        "tags": frozenset({"tool", "outcome", "error_category"}),
+        "measurements": frozenset({"duration_ms"}),
+    },
+    MCP_WEATHER_FALLBACK: {
+        "tags": frozenset({"failure_type"}),
+        "measurements": frozenset(),
+    },
+}
 
 _MAX_TAG_VALUE_LENGTH = 100
 _INVALID_TAG_CHARS = re.compile(r"[^a-z0-9_.:/\-]")
@@ -142,17 +174,158 @@ class LogTelemetrySink:
         _telemetry_logger().info(json.dumps(record, sort_keys=True))
 
 
+# ---------------------------------------------------------------------------
+# Datadog (DogStatsD over UDP, standard library only)
+# ---------------------------------------------------------------------------
+def metric_type(measurement: str) -> str:
+    """DogStatsD type for a measurement: ``d`` (distribution) for ``*_ms``, else ``c`` (count)."""
+    return "d" if measurement.endswith("_ms") else "c"
+
+
+GLOBAL_TAG_KEYS = ("service", "env", "version")
+
+
+def safe_global_tags(global_tags: Mapping[str, Any] | None) -> dict[str, str]:
+    """Keep only ``service``/``env``/``version`` with non-empty values, normalized."""
+    return {
+        key: normalize_tag_value(value)
+        for key, value in (global_tags or {}).items()
+        if key in GLOBAL_TAG_KEYS and value is not None and str(value).strip()
+    }
+
+
+def _format_value(value: float) -> str:
+    text = f"{value:.3f}".rstrip("0").rstrip(".")
+    return text if text not in ("", "-0") else "0"
+
+
+def datadog_metric_lines(
+    event: TelemetryEvent,
+    prefix: str = METRIC_PREFIX,
+    global_tags: Mapping[str, Any] | None = None,
+) -> list[str]:
+    """Translate one event into DogStatsD lines.
+
+    Only events, tags and measurements declared in ``EVENT_CATALOG`` are sent; anything else
+    is dropped, so a new tag cannot reach Datadog by accident.
+    """
+    schema = EVENT_CATALOG.get(event.name)
+    if schema is None:
+        return []
+    # Values are normalized again here (idempotent) so an event built without
+    # ``Telemetry.emit`` cannot inject ',', '|', '#', newlines or extra tags.
+    tags = [f"{key}:{value}" for key, value in sorted(safe_global_tags(global_tags).items())]
+    tags += [
+        f"{key}:{normalize_tag_value(value)}"
+        for key, value in sorted(event.tags.items())
+        if key in schema["tags"] and value is not None
+    ]
+    suffix = f"|#{','.join(tags)}" if tags else ""
+    base = f"{prefix}.{event.name}"
+    lines = [f"{base}.count:1|c{suffix}"]
+    for key, value in sorted(event.measurements.items()):
+        if (
+            key in schema["measurements"]
+            and isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and math.isfinite(value)
+        ):
+            lines.append(f"{base}.{key}:{_format_value(value)}|{metric_type(key)}{suffix}")
+    return lines
+
+
+class DogStatsDSink:
+    """Sends each event as DogStatsD metrics in one UDP datagram to a Datadog Agent.
+
+    UDP is fire-and-forget: if no Agent is listening the datagram is simply lost. Every
+    failure (formatting, DNS resolution, socket creation, sending) is swallowed, so metrics
+    can never fail a request. After a resolution or socket failure the sink waits
+    ``RETRY_SECONDS`` before trying again, so an unresolvable Agent host cannot add a blocking
+    DNS lookup to every request.
+    """
+
+    RETRY_SECONDS = 30.0
+
+    def __init__(
+        self,
+        host: str = "localhost",
+        port: int = 8125,
+        global_tags: Mapping[str, Any] | None = None,
+        prefix: str = METRIC_PREFIX,
+        sock: Any | None = None,
+    ) -> None:
+        self.host = host
+        self.port = int(port)
+        self.global_tags = safe_global_tags(global_tags)
+        self.prefix = prefix
+        self._socket = sock
+        self._address: Any = None
+        self._retry_after = 0.0
+        self._lock = threading.Lock()
+
+    def _connection(self) -> tuple[Any, Any] | None:
+        """Resolve the Agent address and create the socket once; ``None`` while unavailable."""
+        with self._lock:
+            if self._address is not None and self._socket is not None:
+                return self._socket, self._address
+            if time.monotonic() < self._retry_after:
+                return None
+            try:
+                infos = socket.getaddrinfo(self.host, self.port, type=socket.SOCK_DGRAM)
+                # Prefer IPv4: "localhost" often resolves to ::1 first, while the Agent's
+                # DogStatsD listener typically binds the IPv4 loopback address. Fall back to
+                # the first result when no IPv4 address is available.
+                family, _, _, _, address = next(
+                    (info for info in infos if info[0] == socket.AF_INET), infos[0]
+                )
+                if self._socket is None:
+                    new_socket = socket.socket(family, socket.SOCK_DGRAM)
+                    new_socket.setblocking(False)
+                    self._socket = new_socket
+                self._address = address
+            except Exception:
+                self._address = None
+                self._retry_after = time.monotonic() + self.RETRY_SECONDS
+                return None
+            return self._socket, self._address
+
+    def handle(self, event: TelemetryEvent) -> None:
+        try:
+            lines = datadog_metric_lines(event, self.prefix, self.global_tags)
+            if not lines:
+                return
+            connection = self._connection()
+            if connection is None:
+                return
+            sock, address = connection
+            sock.sendto("\n".join(lines).encode("utf-8"), address)
+        except Exception:
+            pass
+
+
 def _configured_sinks() -> list[TelemetrySink]:
     try:
         from app.core.config import settings
-
-        enabled = settings.TELEMETRY_ENABLED
-        log_enabled = settings.TELEMETRY_LOG_ENABLED
     except Exception:
-        enabled, log_enabled = True, True
-    if not enabled:
+        return [LogTelemetrySink()]
+    if not settings.TELEMETRY_ENABLED:
         return []
-    return [LogTelemetrySink()] if log_enabled else []
+    sinks: list[TelemetrySink] = []
+    if settings.TELEMETRY_LOG_ENABLED:
+        sinks.append(LogTelemetrySink())
+    if settings.DD_METRICS_ENABLED:
+        sinks.append(
+            DogStatsDSink(
+                host=settings.DD_AGENT_HOST,
+                port=settings.DD_DOGSTATSD_PORT,
+                global_tags={
+                    "service": settings.DD_SERVICE,
+                    "env": settings.DD_ENV,
+                    "version": settings.DD_VERSION,
+                },
+            )
+        )
+    return sinks
 
 
 class Telemetry:
@@ -226,6 +399,7 @@ def model_tag(model: Any) -> str:
 # Error categorization (type-based; exception messages are never inspected)
 # ---------------------------------------------------------------------------
 _EXCEPTION_CATEGORIES: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("ModelInitialization",), "model_init_error"),
     (("RateLimit",), "rate_limited"),
     (("Timeout", "TimedOut"), "timeout"),
     (("Authentication", "PermissionDenied"), "auth_error"),

@@ -1,28 +1,27 @@
 import hashlib
 import math
-import os
 from typing import List, Sequence
 
 from app.core.config import settings
 
+SUPPORTED_EMBEDDING_PROVIDERS = ("local",)
+
+
+class UnsupportedEmbeddingProviderError(ValueError):
+    """Raised when EMBEDDING_PROVIDER is set to anything other than ``local``."""
+
 
 class EmbeddingService:
-    """Creates embeddings using OpenAI or a deterministic local test-friendly model."""
+    """Creates embeddings with a deterministic, local hashing embedder.
 
-    def __init__(self) -> None:
-        self.provider = settings.EMBEDDING_PROVIDER.lower()
-        self.model = settings.EMBEDDING_MODEL
-        self.dimensions = settings.LOCAL_EMBEDDING_DIMENSIONS
-        self.api_key = settings.OPENAI_API_KEY or os.getenv("openai_api_key")
-        self._client = None
+    Embeddings are computed in-process: no external embedding API, network access or key is
+    used. ``local`` is the only supported provider; any other configured value is rejected
+    before embedding anything.
+    """
 
-    def _openai_client(self):
-        if self._client is None:
-            if not self.api_key:
-                raise ValueError("OPENAI_API_KEY is required for OpenAI embeddings")
-            from openai import OpenAI
-            self._client = OpenAI(api_key=self.api_key)
-        return self._client
+    def __init__(self, provider: str | None = None, dimensions: int | None = None) -> None:
+        self.provider = (provider if provider is not None else settings.EMBEDDING_PROVIDER).strip().lower()
+        self.dimensions = dimensions if dimensions is not None else settings.LOCAL_EMBEDDING_DIMENSIONS
 
     def _local_embed(self, text: str) -> List[float]:
         vector = [0.0] * self.dimensions
@@ -35,12 +34,11 @@ class EmbeddingService:
         return [value / norm for value in vector] if norm else vector
 
     def embed(self, texts: Sequence[str]) -> List[List[float]]:
-        if self.provider == "local":
-            return [self._local_embed(text) for text in texts]
-        if self.provider != "openai":
-            raise ValueError(f"Unsupported embedding provider: {self.provider}")
-        response = self._openai_client().embeddings.create(input=list(texts), model=self.model)
-        return [item.embedding for item in response.data]
+        if self.provider not in SUPPORTED_EMBEDDING_PROVIDERS:
+            raise UnsupportedEmbeddingProviderError(
+                "Unsupported embedding provider; only 'local' embeddings are supported"
+            )
+        return [self._local_embed(text) for text in texts]
 
     def embed_query(self, query: str) -> List[float]:
         return self.embed([query])[0]
