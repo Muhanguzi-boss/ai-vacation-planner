@@ -1,0 +1,204 @@
+{
+  "dataset_version": "1.0.0",
+  "description": "Reference vacation-planning cases for model-based itinerary evaluation.",
+  "cases": [
+    {
+      "id": "tokyo-food-2d",
+      "destination": "Tokyo",
+      "days": 2,
+      "budget": 300,
+      "travel_style": "food and neighborhood exploration",
+      "request": "Plan a 2-day Tokyo trip for a traveler who loves Japanese food and neighborhood walks. Keep activity costs within a $300 budget, group nearby stops, and include morning, afternoon, and evening plans each day.",
+      "expected_output": {
+        "destination": "Tokyo",
+        "days": [
+          {
+            "day": 1,
+            "activities": [
+              {"time": "morning", "activity": "Explore the outer market streets and sample a light breakfast from a food stall.", "location": "Tsukiji Outer Market, Tokyo", "estimated_cost": "$25"},
+              {"time": "afternoon", "activity": "Walk through the nearby Hamarikyu gardens and take a break at the teahouse.", "location": "Hamarikyu Gardens, Tokyo", "estimated_cost": "$10"},
+              {"time": "evening", "activity": "Enjoy a casual sushi dinner and return by local transit.", "location": "Ginza, Tokyo", "estimated_cost": "$45"}
+            ]
+          },
+          {
+            "day": 2,
+            "activities": [
+              {"time": "morning", "activity": "Visit the Meiji Shrine grounds and take a quiet walk through the forested approach.", "location": "Meiji Jingu, Shibuya, Tokyo", "estimated_cost": "$0"},
+              {"time": "afternoon", "activity": "Browse independent shops and cafes along the nearby side streets.", "location": "Harajuku, Tokyo", "estimated_cost": "$35"},
+              {"time": "evening", "activity": "Have a ramen dinner in a neighborhood shop, allowing time to choose a busy but well-reviewed spot.", "location": "Shinjuku, Tokyo", "estimated_cost": "$30"}
+            ]
+          }
+        ],
+        "total_estimated_cost": "$145"
+      }
+    },
+    {
+      "id": "paris-art-3d",
+      "destination": "Paris",
+      "days": 3,
+      "budget": 700,
+      "travel_style": "art, architecture, and relaxed walking",
+      "request": "Create a relaxed 3-day Paris itinerary focused on art and architecture. Stay within $700 for estimated activities and meals, avoid packing distant neighborhoods into one day, and provide three time-of-day activities for each day.",
+      "expected_output": {
+        "destination": "Paris",
+        "days": [
+          {
+            "day": 1,
+            "activities": [
+              {"time": "morning", "activity": "Visit the Louvre and focus on a small selection of galleries rather than trying to see everything.", "location": "Musée du Louvre, 1st arrondissement, Paris", "estimated_cost": "$30"},
+              {"time": "afternoon", "activity": "Walk through the Tuileries Garden and pause for a cafe lunch nearby.", "location": "Jardin des Tuileries, Paris", "estimated_cost": "$30"},
+              {"time": "evening", "activity": "Take an unhurried stroll along the Seine and have dinner in the Latin Quarter.", "location": "Latin Quarter, Paris", "estimated_cost": "$55"}
+            ]
+          },
+          {
+            "day": 2,
+            "activities": [
+              {"time": "morning", "activity": "Explore the Musée d'Orsay's impressionist collection.", "location": "Musée d'Orsay, 7th arrondissement, Paris", "estimated_cost": "$18"},
+              {"time": "afternoon", "activity": "Walk along the Left Bank and visit the nearby Saint-Germain-des-Prés area.", "location": "Saint-Germain-des-Prés, Paris", "estimated_cost": "$25"},
+              {"time": "evening", "activity": "Have a relaxed bistro dinner close to the hotel or a convenient Metro stop.", "location": "Saint-Germain-des-Prés, Paris", "estimated_cost": "$50"}
+            ]
+          },
+          {
+            "day": 3,
+            "activities": [
+              {"time": "morning", "activity": "Visit the Sacré-Cœur Basilica and enjoy the view from the hill.", "location": "Montmartre, Paris", "estimated_cost": "$0"},
+              {"time": "afternoon", "activity": "Browse Montmartre's small galleries and streets at a leisurely pace.", "location": "Place du Tertre, Montmartre, Paris", "estimated_cost": "$25"},
+              {"time": "evening", "activity": "Finish with a casual French meal in the neighborhood.", "location": "Montmartre, Paris", "estimated_cost": "$45"}
+            ]
+          }
+        ],
+        "total_estimated_cost": "$278"
+      }
+    },
+    {
+      "id": "lisbon-family-2d",
+      "destination": "Lisbon",
+      "days": 2,
+      "budget": 450,
+      "travel_style": "family-friendly history and outdoor time",
+      "request": "Plan a family-friendly 2-day visit to Lisbon with manageable walks, historic sights, and outdoor breaks. Keep estimated costs below $450 and make each day practical with morning, afternoon, and evening options.",
+      "expected_output": {
+        "destination": "Lisbon",
+        "days": [
+          {
+            "day": 1,
+            "activities": [
+              {"time": "morning", "activity": "Explore the flat riverside streets of Belém and see the exterior of the Jerónimos Monastery.", "location": "Belém, Lisbon", "estimated_cost": "$0"},
+              {"time": "afternoon", "activity": "Visit the Maritime Museum or take a shaded break in the nearby gardens.", "location": "Belém, Lisbon", "estimated_cost": "$25"},
+              {"time": "evening", "activity": "Share a relaxed dinner at a family-friendly restaurant in Belém.", "location": "Belém, Lisbon", "estimated_cost": "$65"}
+            ]
+          },
+          {
+            "day": 2,
+            "activities": [
+              {"time": "morning", "activity": "Visit São Jorge Castle early and take breaks on the uphill route.", "location": "Castelo de São Jorge, Lisbon", "estimated_cost": "$45"},
+              {"time": "afternoon", "activity": "Explore nearby Alfama at a comfortable pace, using a tram or taxi if the hills become tiring.", "location": "Alfama, Lisbon", "estimated_cost": "$20"},
+              {"time": "evening", "activity": "Have an early dinner near Praça do Comércio and enjoy the open riverside square.", "location": "Baixa, Lisbon", "estimated_cost": "$70"}
+            ]
+          }
+        ],
+        "total_estimated_cost": "$225"
+      }
+    },
+    {
+      "id": "banff-outdoors-4d",
+      "destination": "Banff",
+      "days": 4,
+      "budget": null,
+      "travel_style": "scenic nature and low-impact outdoor activities",
+      "request": "Suggest a 4-day nature-focused trip based in Banff, Canada, with scenic outdoor activities, conservation-minded choices, and sensible time for rest. The budget is flexible. Do not assume trail conditions or seasonal transport; recommend checking current local guidance.",
+      "expected_output": {
+        "destination": "Banff",
+        "days": [
+          {
+            "day": 1,
+            "activities": [
+              {"time": "morning", "activity": "Walk the accessible paths around the Bow River near town and check local conditions.", "location": "Bow River Trail, Banff, Alberta", "estimated_cost": "$0"},
+              {"time": "afternoon", "activity": "Visit the Whyte Museum to learn about local history and mountain communities.", "location": "Whyte Museum, Banff, Alberta", "estimated_cost": "$15"},
+              {"time": "evening", "activity": "Have dinner in Banff town and prepare for the next day's weather.", "location": "Banff town centre, Alberta", "estimated_cost": "$45"}
+            ]
+          },
+          {
+            "day": 2,
+            "activities": [
+              {"time": "morning", "activity": "Take the Banff Gondola if operating and conditions suit; confirm current hours before travel.", "location": "Sulphur Mountain, Banff, Alberta", "estimated_cost": "$75"},
+              {"time": "afternoon", "activity": "Use the summit boardwalk only if open and safe, then return to town for rest.", "location": "Sulphur Mountain, Banff, Alberta", "estimated_cost": "$10"},
+              {"time": "evening", "activity": "Choose a casual dinner in town and avoid wildlife feeding or approaching animals.", "location": "Banff town centre, Alberta", "estimated_cost": "$45"}
+            ]
+          },
+          {
+            "day": 3,
+            "activities": [
+              {"time": "morning", "activity": "Travel to Lake Minnewanka using current park transport guidance and enjoy the lakeside viewpoints.", "location": "Lake Minnewanka, Banff National Park, Alberta", "estimated_cost": "$20"},
+              {"time": "afternoon", "activity": "Take a short, marked lakeside walk after checking trail status and weather.", "location": "Lake Minnewanka, Banff National Park, Alberta", "estimated_cost": "$0"},
+              {"time": "evening", "activity": "Return to Banff town for dinner and a restful evening.", "location": "Banff town centre, Alberta", "estimated_cost": "$45"}
+            ]
+          },
+          {
+            "day": 4,
+            "activities": [
+              {"time": "morning", "activity": "Visit Cave and Basin National Historic Site and use its interpretive paths.", "location": "Cave and Basin, Banff, Alberta", "estimated_cost": "$10"},
+              {"time": "afternoon", "activity": "Browse local shops or take an easy walk near the town centre before departure.", "location": "Banff town centre, Alberta", "estimated_cost": "$20"},
+              {"time": "evening", "activity": "Have an early meal in town and allow a buffer for onward travel.", "location": "Banff town centre, Alberta", "estimated_cost": "$40"}
+            ]
+          }
+        ],
+        "total_estimated_cost": "Flexible; approximately $380"
+      }
+    },
+    {
+      "id": "rome-history-5d",
+      "destination": "Rome",
+      "days": 5,
+      "budget": 900,
+      "travel_style": "ancient history, food, and slower pacing",
+      "request": "Build a slower-paced 5-day Rome itinerary centered on ancient history and local food. Stay within $900 in estimated activity and meal costs, group nearby sights together, and include morning, afternoon, and evening activities each day.",
+      "expected_output": {
+        "destination": "Rome",
+        "days": [
+          {
+            "day": 1,
+            "activities": [
+              {"time": "morning", "activity": "Visit the Colosseum with a timed ticket and allow time for security.", "location": "Colosseum, Rome", "estimated_cost": "$25"},
+              {"time": "afternoon", "activity": "Explore the nearby Roman Forum and Palatine Hill at a comfortable pace.", "location": "Roman Forum, Rome", "estimated_cost": "$0"},
+              {"time": "evening", "activity": "Have a casual dinner in Monti, close to the day's sights.", "location": "Monti, Rome", "estimated_cost": "$50"}
+            ]
+          },
+          {
+            "day": 2,
+            "activities": [
+              {"time": "morning", "activity": "Visit the Pantheon and nearby historic streets.", "location": "Pantheon, Rome", "estimated_cost": "$10"},
+              {"time": "afternoon", "activity": "Take a long lunch and walk to Piazza Navona and Campo de' Fiori.", "location": "Historic Centre, Rome", "estimated_cost": "$45"},
+              {"time": "evening", "activity": "Enjoy dinner in the historic centre without scheduling a distant attraction.", "location": "Centro Storico, Rome", "estimated_cost": "$55"}
+            ]
+          },
+          {
+            "day": 3,
+            "activities": [
+              {"time": "morning", "activity": "Visit the Vatican Museums with a pre-booked entry time.", "location": "Vatican Museums, Vatican City", "estimated_cost": "$30"},
+              {"time": "afternoon", "activity": "See St. Peter's Basilica, allowing for queues and appropriate visitor attire.", "location": "St. Peter's Basilica, Vatican City", "estimated_cost": "$0"},
+              {"time": "evening", "activity": "Walk along the Tiber and have dinner in Prati.", "location": "Prati, Rome", "estimated_cost": "$55"}
+            ]
+          },
+          {
+            "day": 4,
+            "activities": [
+              {"time": "morning", "activity": "Explore the Borghese Gallery with a reserved ticket.", "location": "Galleria Borghese, Rome", "estimated_cost": "$25"},
+              {"time": "afternoon", "activity": "Relax in Villa Borghese and walk toward Piazza del Popolo.", "location": "Villa Borghese, Rome", "estimated_cost": "$0"},
+              {"time": "evening", "activity": "Try a neighborhood trattoria near the park or Spanish Steps.", "location": "Piazza di Spagna, Rome", "estimated_cost": "$55"}
+            ]
+          },
+          {
+            "day": 5,
+            "activities": [
+              {"time": "morning", "activity": "Visit the Baths of Caracalla and explore the archaeological grounds.", "location": "Baths of Caracalla, Rome", "estimated_cost": "$15"},
+              {"time": "afternoon", "activity": "Take a relaxed walk through the nearby Aventine area and stop for a cafe break.", "location": "Aventine Hill, Rome", "estimated_cost": "$25"},
+              {"time": "evening", "activity": "Finish with a relaxed Roman dinner in Testaccio.", "location": "Testaccio, Rome", "estimated_cost": "$60"}
+            ]
+          }
+        ],
+        "total_estimated_cost": "$450"
+      }
+    }
+  ]
+}

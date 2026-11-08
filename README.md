@@ -74,6 +74,37 @@ Backend REST API built with FastAPI for planning vacations end-to-end: users man
    python -m pytest tests
 ```
 
+### Optional model-based itinerary evaluation
+
+The versioned golden dataset is stored at
+[`data/evaluation/golden-itineraries-v1.json`](data/evaluation/golden-itineraries-v1.json).
+Offline tests validate its version, schema, destination/duration coverage, and expected
+daily schedules without contacting an LLM.
+
+The DeepEval suite is intentionally named and located so it is **not collected** by
+`python -m pytest tests`. It generates itineraries through the existing Anthropic-backed
+LangGraph flow and uses an Anthropic judge for four GEval criteria: relevance,
+completeness, consistency, and output-structure adherence. Each criterion has a minimum
+score threshold of **0.70**. Deterministic Pydantic, destination, duration, and three-period
+daily-schedule checks run before model-based scoring.
+
+Install the optional evaluation dependency in the active environment:
+
+```bash
+pip install -r requirements-evaluation.txt
+```
+
+Set `ANTHROPIC_API_KEY` and, optionally, `ANTHROPIC_MODEL`, then run only the evaluation
+suite (from the repository root):
+
+```bash
+python -m pytest tests/evaluation/deepeval_itinerary_eval.py -v
+```
+
+This command makes paid/network model calls for each golden case and its four evaluations.
+Do not use it as part of routine offline tests or CI unless that cost and network access
+are explicitly intended. `OPENAI_API_KEY` is not used for generation or judging.
+
 ## Phase 4: RAG & Knowledge Systems
 
 The itinerary pipeline uses retrieval-augmented generation (RAG):
