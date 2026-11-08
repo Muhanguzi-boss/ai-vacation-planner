@@ -2,7 +2,7 @@ import os
 import json
 import logging
 from typing import Dict, Any, List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # Lazily import Anthropic to ensure runtime safety
 try:
@@ -17,21 +17,43 @@ logger = logging.getLogger(__name__)
 # Pydantic Schemas for AI Output Validation
 # ----------------------------------------------------
 class GeneratedActivity(BaseModel):
-    time: str
-    activity: str
-    location: str
-    estimated_cost: str
+    time: str = Field(min_length=1)
+    activity: str = Field(min_length=1)
+    location: str = Field(min_length=1)
+    estimated_cost: str = Field(min_length=1)
+
+    @field_validator("time", "activity", "location", "estimated_cost")
+    @classmethod
+    def fields_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("itinerary activity fields must not be blank")
+        return value
 
 
 class GeneratedDay(BaseModel):
-    day: int
-    activities: List[GeneratedActivity]
+    day: int = Field(ge=1)
+    activities: List[GeneratedActivity] = Field(min_length=1)
 
 
 class GeneratedItinerary(BaseModel):
-    destination: str
-    days: List[GeneratedDay]
-    total_estimated_cost: str
+    destination: str = Field(min_length=1)
+    days: List[GeneratedDay] = Field(min_length=1)
+    total_estimated_cost: str = Field(min_length=1)
+
+    @field_validator("destination", "total_estimated_cost")
+    @classmethod
+    def fields_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("itinerary fields must not be blank")
+        return value
+
+    @model_validator(mode="after")
+    def days_must_be_contiguous(self) -> "GeneratedItinerary":
+        if [day.day for day in self.days] != list(range(1, len(self.days) + 1)):
+            raise ValueError("itinerary days must be numbered consecutively from 1")
+        return self
 
 
 # ----------------------------------------------------

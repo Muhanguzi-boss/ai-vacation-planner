@@ -266,8 +266,11 @@ class MCPBoundaryIntegrationTests(unittest.TestCase):
                 "Plan a day in Atlantis."
             )
 
-        self.assertIn("Weather lookup failed", str(context.exception))
-        self.assertIn("Location not found: Atlantis", str(context.exception))
+        self.assertEqual(
+            str(context.exception),
+            "Travel orchestration failed validation or could not complete",
+        )
+        self.assertNotIn("Atlantis", str(context.exception))
 
 
 class MCPWeatherFallbackTests(unittest.TestCase):
@@ -301,6 +304,7 @@ class MCPWeatherFallbackTests(unittest.TestCase):
             },
         )
         self.assertIn("timed out", logs.output[0])
+        self.assertNotIn("Paris", logs.output[0])
 
     def test_unexpected_errors_are_not_hidden_by_fallback(self):
         client = FakeMCPClient(error=TypeError("adapter bug"))

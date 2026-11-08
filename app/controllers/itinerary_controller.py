@@ -29,7 +29,7 @@ def generate_and_save_itinerary(db: Session, trip_id: int, current_user_id: int)
         raise HTTPException(status_code=400, detail="Itinerary already exists for this trip")
 
     # 3. Generate the itinerary through the LangGraph orchestration service
-    logger.info(f"Generating itinerary for trip {trip_id} (destination: {trip.destination})...")
+    logger.info("Generating itinerary")
     try:
         request = (
             f"Plan a {trip.days}-day trip to {trip.destination}. "
@@ -37,9 +37,13 @@ def generate_and_save_itinerary(db: Session, trip_id: int, current_user_id: int)
             f"Budget: {trip.budget if trip.budget is not None else 'flexible'}. "
             "Use travel knowledge and weather information when relevant."
         )
-        generated = TravelPlanningOrchestrator().invoke(request).model_dump()
-    except Exception as e:
-        logger.error(f"Failed to generate itinerary: {str(e)}", exc_info=True)
+        generated = TravelPlanningOrchestrator().invoke(
+            request,
+            expected_destination=trip.destination,
+            expected_days=trip.days,
+        ).model_dump()
+    except Exception:
+        logger.error("Failed to generate itinerary")
         raise HTTPException(
             status_code=502,
             detail="AI generation failed"

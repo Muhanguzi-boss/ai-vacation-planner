@@ -114,6 +114,10 @@ class ItineraryRouteTests(unittest.TestCase):
             },
         )
         orchestrator.return_value.invoke.assert_called_once()
+        self.assertEqual(
+            orchestrator.return_value.invoke.call_args.kwargs,
+            {"expected_destination": "Paris", "expected_days": 1},
+        )
 
         saved = self.db.query(Itinerary).filter(Itinerary.trip_id == trip.id).one()
         self.assertEqual(saved.days, response.json()["days"])
@@ -184,11 +188,16 @@ class ItineraryRouteTests(unittest.TestCase):
                 "provider failure with sensitive detail"
             )
 
-            response = self.client.post("/itineraries", json={"trip_id": trip.id})
+            with self.assertLogs(
+                "app.controllers.itinerary_controller", level="ERROR"
+            ) as captured:
+                response = self.client.post("/itineraries", json={"trip_id": trip.id})
 
         self.assertEqual(response.status_code, 502)
         self.assertEqual(response.json(), {"detail": "AI generation failed"})
         self.assertNotIn("sensitive detail", response.text)
+        self.assertNotIn("sensitive detail", "\n".join(captured.output))
+        self.assertNotIn("Paris", "\n".join(captured.output))
         self.assertEqual(
             self.db.query(Itinerary).filter(Itinerary.trip_id == trip.id).count(),
             0,

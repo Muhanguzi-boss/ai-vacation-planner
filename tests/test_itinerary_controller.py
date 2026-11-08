@@ -26,7 +26,7 @@ def sample_itinerary():
             "destination": "Paris",
             "days": [
                 {
-                    "day": 1,
+                    "day": day,
                     "activities": [
                         {
                             "time": "morning",
@@ -36,6 +36,7 @@ def sample_itinerary():
                         }
                     ],
                 }
+                for day in range(1, 4)
             ],
             "total_estimated_cost": "$25",
         }
@@ -70,6 +71,10 @@ class ItineraryControllerIntegrationTests(unittest.TestCase):
         request = orchestrator_class.return_value.invoke.call_args.args[0]
         self.assertIn("3-day trip to Paris", request)
         self.assertIn("culture", request)
+        self.assertEqual(
+            orchestrator_class.return_value.invoke.call_args.kwargs,
+            {"expected_destination": "Paris", "expected_days": 3},
+        )
         db.add.assert_called_once()
         db.commit.assert_called_once()
         self.assertEqual(result.days, sample_itinerary().model_dump()["days"])

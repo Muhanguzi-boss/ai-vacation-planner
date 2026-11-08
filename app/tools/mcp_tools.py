@@ -35,7 +35,10 @@ class MCPWeatherService:
         except MCPClientError as exc:
             if self.fallback is None:
                 raise
-            logger.warning("MCP weather lookup for %r failed (%s); using local weather fallback", location, exc)
+            failure_type = (
+                "timed out" if "timed out" in str(exc).casefold() else "failed"
+            )
+            logger.warning("MCP weather lookup %s; using local weather fallback", failure_type)
             return {**self.fallback(location), "source": "local fallback", "note": FALLBACK_NOTE}
 
 
