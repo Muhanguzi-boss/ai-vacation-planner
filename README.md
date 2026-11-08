@@ -56,14 +56,14 @@ Backend REST API built with FastAPI for planning vacations end-to-end: users man
    # Edit .env with your database credentials and ANTHROPIC_API_KEY
 ```
 
-   Starting the app loads the project-root `.env` into the process environment automatically
-   (`app/core/env.py`, called first in `app/main.py`), so the Anthropic settings
-   (`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `LLM_TEMPERATURE`, `LLM_MAX_TOKENS`) are picked up
-   without exporting them in the shell. Variables already set in the process environment take
-   precedence over `.env`; values are never printed or logged.
+Starting the app loads the project-root `.env` into the process environment automatically
+(`app/core/env.py`, called first in `app/main.py`), so the Anthropic settings
+(`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `LLM_TEMPERATURE`, `LLM_MAX_TOKENS`) are picked up
+without exporting them in the shell. Variables already set in the process environment take
+precedence over `.env`; values are never printed or logged.
 
-   Text-to-speech uses Windows SAPI5 voices. The first speech-to-text request downloads the
-   Whisper model (about 145 MB for `base`) into the Hugging Face cache.
+Text-to-speech uses Windows SAPI5 voices. The first speech-to-text request downloads the
+Whisper model (about 145 MB for `base`) into the Hugging Face cache.
 
 5. Run the server
 
@@ -81,8 +81,8 @@ Backend REST API built with FastAPI for planning vacations end-to-end: users man
    python -m pytest tests
 ```
 
-   pytest keeps Datadog metrics out of the test run even if your `.env` or shell enables them
-   (see [Phase 7 → Testing](#c-testing)).
+pytest keeps Datadog metrics out of the test run even if your `.env` or shell enables them
+(see [Phase 7 → Testing](#c-testing)).
 
 8. Optional, **paid**: run the model-based DeepEval evaluation. See
    [Phase 7 → Evaluation](#a-evaluation) before running it.
@@ -125,16 +125,16 @@ As of Phase 5, `POST /itineraries` no longer calls the knowledge base directly f
 
 ### RAG environment variables
 
-| Variable                     | Default                  | Purpose                    |
-| ---------------------------- | ------------------------ | -------------------------- |
-| `KNOWLEDGE_BASE_PATH`        | `data/knowledge`         | Seed document directory    |
-| `VECTOR_STORE_PATH`          | `data/vector_store.db`   | SQLite vector store path   |
-| `EMBEDDING_PROVIDER`         | `local`                  | Must be `local`            |
-| `LOCAL_EMBEDDING_DIMENSIONS` | `2048`                   | Local vector size          |
-| `KNOWLEDGE_CHUNK_SIZE`       | `900`                    | Maximum chunk characters   |
-| `KNOWLEDGE_CHUNK_OVERLAP`    | `120`                    | Context overlap characters |
-| `KNOWLEDGE_TOP_K`            | `5`                      | Number of results          |
-| `KNOWLEDGE_MIN_SCORE`        | `0.2`                    | Minimum cosine score       |
+| Variable                     | Default                | Purpose                    |
+| ---------------------------- | ---------------------- | -------------------------- |
+| `KNOWLEDGE_BASE_PATH`        | `data/knowledge`       | Seed document directory    |
+| `VECTOR_STORE_PATH`          | `data/vector_store.db` | SQLite vector store path   |
+| `EMBEDDING_PROVIDER`         | `local`                | Must be `local`            |
+| `LOCAL_EMBEDDING_DIMENSIONS` | `2048`                 | Local vector size          |
+| `KNOWLEDGE_CHUNK_SIZE`       | `900`                  | Maximum chunk characters   |
+| `KNOWLEDGE_CHUNK_OVERLAP`    | `120`                  | Context overlap characters |
+| `KNOWLEDGE_TOP_K`            | `5`                    | Number of results          |
+| `KNOWLEDGE_MIN_SCORE`        | `0.2`                  | Minimum cosine score       |
 
 ## Phase 5: Frameworks & Orchestration
 
@@ -175,12 +175,12 @@ POST /itineraries
 
 **Required configuration:** the orchestrator reuses the existing Anthropic settings already read by `app/services/ai_service.py` — no new environment variables or duplicated config parsing were introduced:
 
-| Variable             | Default                       | Purpose                               |
-| -------------------- | ------------------------------ | -------------------------------------- |
-| `ANTHROPIC_API_KEY`  | *(required)*                   | Anthropic credential used by the graph |
-| `ANTHROPIC_MODEL`    | `claude-haiku-4-5` in `.env.example` | Model used for planning, finalizing, and (Phase 6) image analysis; must support vision |
-| `LLM_TEMPERATURE`    | `0.3`                          | Sampling temperature                   |
-| `LLM_MAX_TOKENS`     | `3000`                         | Max tokens per model call              |
+| Variable            | Default                              | Purpose                                                                                |
+| ------------------- | ------------------------------------ | -------------------------------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY` | _(required)_                         | Anthropic credential used by the graph                                                 |
+| `ANTHROPIC_MODEL`   | `claude-haiku-4-5` in `.env.example` | Model used for planning, finalizing, and (Phase 6) image analysis; must support vision |
+| `LLM_TEMPERATURE`   | `0.3`                                | Sampling temperature                                                                   |
+| `LLM_MAX_TOKENS`    | `3000`                               | Max tokens per model call                                                              |
 
 LangSmith tracing was evaluated and is **not** part of this phase: the project requirements for Phase 5 do not call for it, so no tracing integration or related configuration was added.
 
@@ -257,30 +257,30 @@ Image -> Anthropic vision -> ImageTravelInsights -> (client) POST /trips -> POST
 
 ### E. Configuration
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `ANTHROPIC_MODEL` | `claude-haiku-4-5` (`.env.example`) | Claude model for planning and image analysis |
-| `MAX_IMAGE_UPLOAD_MB` | `5` | Image upload limit for `/vision/analyze` |
-| `MCP_WEATHER_ENABLED` | `false` | Route `travel_weather` through the MCP weather server |
-| `MCP_WEATHER_FALLBACK_ENABLED` | `true` | Use local weather when the MCP call fails |
-| `MCP_TIMEOUT_SECONDS` | `15` | Deadline for one MCP call, including server start-up |
-| `WHISPER_MODEL` | `base` | faster-whisper model size |
-| `WHISPER_COMPUTE_TYPE` | `int8` | faster-whisper CPU compute type |
-| `MAX_AUDIO_UPLOAD_MB` | `10` | Audio upload limit |
-| `MAX_AUDIO_DURATION_SECONDS` | `300` | Longest audio accepted for transcription |
-| `MAX_TTS_TEXT_CHARS` | `3000` | Longest text accepted for speech synthesis |
+| Variable                       | Default                             | Purpose                                               |
+| ------------------------------ | ----------------------------------- | ----------------------------------------------------- |
+| `ANTHROPIC_MODEL`              | `claude-haiku-4-5` (`.env.example`) | Claude model for planning and image analysis          |
+| `MAX_IMAGE_UPLOAD_MB`          | `5`                                 | Image upload limit for `/vision/analyze`              |
+| `MCP_WEATHER_ENABLED`          | `false`                             | Route `travel_weather` through the MCP weather server |
+| `MCP_WEATHER_FALLBACK_ENABLED` | `true`                              | Use local weather when the MCP call fails             |
+| `MCP_TIMEOUT_SECONDS`          | `15`                                | Deadline for one MCP call, including server start-up  |
+| `WHISPER_MODEL`                | `base`                              | faster-whisper model size                             |
+| `WHISPER_COMPUTE_TYPE`         | `int8`                              | faster-whisper CPU compute type                       |
+| `MAX_AUDIO_UPLOAD_MB`          | `10`                                | Audio upload limit                                    |
+| `MAX_AUDIO_DURATION_SECONDS`   | `300`                               | Longest audio accepted for transcription              |
+| `MAX_TTS_TEXT_CHARS`           | `3000`                              | Longest text accepted for speech synthesis            |
 
 ### F. Phase 6 endpoints
 
 All require a bearer token.
 
-| Method | Path | Request | Response | Purpose |
-| --- | --- | --- | --- | --- |
-| POST | `/vision/analyze` | multipart `image` | JSON `ImageTravelInsights` | Extract travel information from a photo |
-| POST | `/speech/transcribe` | multipart `audio` | JSON `{ "text" }` | Local speech-to-text |
-| POST | `/speech/synthesize` | JSON `{ "text" }` | `audio/wav` | Local text-to-speech |
-| POST | `/speech/plan` | multipart `audio` | JSON transcript + itinerary | Spoken request → itinerary (not saved) |
-| POST | `/itineraries/{trip_id}/audio` | — | `audio/wav` | Narrate a saved itinerary |
+| Method | Path                           | Request           | Response                    | Purpose                                 |
+| ------ | ------------------------------ | ----------------- | --------------------------- | --------------------------------------- |
+| POST   | `/vision/analyze`              | multipart `image` | JSON `ImageTravelInsights`  | Extract travel information from a photo |
+| POST   | `/speech/transcribe`           | multipart `audio` | JSON `{ "text" }`           | Local speech-to-text                    |
+| POST   | `/speech/synthesize`           | JSON `{ "text" }` | `audio/wav`                 | Local text-to-speech                    |
+| POST   | `/speech/plan`                 | multipart `audio` | JSON transcript + itinerary | Spoken request → itinerary (not saved)  |
+| POST   | `/itineraries/{trip_id}/audio` | —                 | `audio/wav`                 | Narrate a saved itinerary               |
 
 Errors use generic messages (`"AI image analysis failed"`, `"Transcription failed"`, `"Speech synthesis failed"`, `"AI generation failed"`); the underlying exception is logged on the server, and file paths, provider errors and stack traces are never returned. Validation errors describe the problem with the input (type, size, duration, emptiness).
 
@@ -393,14 +393,14 @@ sockets. This isolation applies when tests run through pytest.
 
 `app/core/telemetry.py` records privacy-safe events:
 
-| Event | What it measures |
-| --- | --- |
-| `http.request` | Every API request: latency, method, route template, status, error category |
-| `ai.generation` | Itinerary planning and image analysis: latency, model, outcome, error category, tool iterations |
-| `llm.request` | Each Anthropic call: latency, model, LangGraph node, input/output/total tokens when reported |
-| `llm.model_init` | Anthropic model creation, including a missing API key |
-| `tool.execution` | Each tool call: latency, tool name, outcome, error category |
-| `mcp.weather.fallback` | MCP weather failures answered by the local fallback |
+| Event                  | What it measures                                                                                |
+| ---------------------- | ----------------------------------------------------------------------------------------------- |
+| `http.request`         | Every API request: latency, method, route template, status, error category                      |
+| `ai.generation`        | Itinerary planning and image analysis: latency, model, outcome, error category, tool iterations |
+| `llm.request`          | Each Anthropic call: latency, model, LangGraph node, input/output/total tokens when reported    |
+| `llm.model_init`       | Anthropic model creation, including a missing API key                                           |
+| `tool.execution`       | Each tool call: latency, tool name, outcome, error category                                     |
+| `mcp.weather.fallback` | MCP weather failures answered by the local fallback                                             |
 
 - **Structured logs:** by default (`TELEMETRY_LOG_ENABLED=true`), each event is written as one
   JSON line to stderr (logger `vacation_planner.telemetry`).
@@ -423,16 +423,16 @@ repository.
 
 ### E. Configuration
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `TELEMETRY_ENABLED` | `true` | Master switch for all telemetry (JSON logs and metrics) |
-| `TELEMETRY_LOG_ENABLED` | `true` | JSON telemetry lines on stderr |
-| `DD_METRICS_ENABLED` | `false` | Send metrics to a Datadog Agent over DogStatsD (**disabled by default**) |
-| `DD_AGENT_HOST` | `localhost` | Agent host (IPv4 is preferred when it resolves to both) |
-| `DD_DOGSTATSD_PORT` | `8125` | Agent DogStatsD UDP port |
-| `DD_SERVICE` | `ai-vacation-planner` | `service` tag on every metric |
-| `DD_ENV` | `local` | `env` tag on every metric |
-| `DD_VERSION` | `1.0.0` | `version` tag on every metric |
+| Variable                | Default               | Purpose                                                                  |
+| ----------------------- | --------------------- | ------------------------------------------------------------------------ |
+| `TELEMETRY_ENABLED`     | `true`                | Master switch for all telemetry (JSON logs and metrics)                  |
+| `TELEMETRY_LOG_ENABLED` | `true`                | JSON telemetry lines on stderr                                           |
+| `DD_METRICS_ENABLED`    | `false`               | Send metrics to a Datadog Agent over DogStatsD (**disabled by default**) |
+| `DD_AGENT_HOST`         | `localhost`           | Agent host (IPv4 is preferred when it resolves to both)                  |
+| `DD_DOGSTATSD_PORT`     | `8125`                | Agent DogStatsD UDP port                                                 |
+| `DD_SERVICE`            | `ai-vacation-planner` | `service` tag on every metric                                            |
+| `DD_ENV`                | `local`               | `env` tag on every metric                                                |
+| `DD_VERSION`            | `1.0.0`               | `version` tag on every metric                                            |
 
 ### F. Known limitations
 
@@ -492,21 +492,21 @@ tests/evaluation/ # Optional, paid DeepEval suite (not collected by `pytest test
 
 ## API Endpoints
 
-| Method | Endpoint                      | Auth | Description                              |
-| ------ | ----------------------------- | ---- | ---------------------------------------- |
-| POST   | /auth/register                | No   | Register a new user                      |
-| POST   | /auth/login                   | No   | Login and get JWT token                  |
-| GET    | /auth/me                      | Yes  | Get current user profile                 |
-| POST   | /trips                        | Yes  | Create a trip                            |
-| GET    | /trips                        | Yes  | List all trips                           |
-| GET    | /trips/{id}                   | Yes  | Get single trip                          |
-| PUT    | /trips/{id}                   | Yes  | Update a trip                            |
-| DELETE | /trips/{id}                   | Yes  | Delete a trip                            |
-| POST   | /itineraries                  | Yes  | Create itinerary for a trip              |
-| GET    | /itineraries/{trip_id}        | Yes  | Get itinerary for a trip                 |
-| POST   | /itineraries/{trip_id}/audio  | Yes  | Narrate a saved itinerary as WAV         |
-| GET    | /knowledge/search             | No   | Semantic travel knowledge search         |
-| POST   | /vision/analyze               | Yes  | Image → structured travel insights       |
-| POST   | /speech/transcribe            | Yes  | Audio → text                             |
-| POST   | /speech/synthesize            | Yes  | Text → WAV                               |
-| POST   | /speech/plan                  | Yes  | Spoken request → itinerary (not saved)   |
+| Method | Endpoint                     | Auth | Description                            |
+| ------ | ---------------------------- | ---- | -------------------------------------- |
+| POST   | /auth/register               | No   | Register a new user                    |
+| POST   | /auth/login                  | No   | Login and get JWT token                |
+| GET    | /auth/me                     | Yes  | Get current user profile               |
+| POST   | /trips                       | Yes  | Create a trip                          |
+| GET    | /trips                       | Yes  | List all trips                         |
+| GET    | /trips/{id}                  | Yes  | Get single trip                        |
+| PUT    | /trips/{id}                  | Yes  | Update a trip                          |
+| DELETE | /trips/{id}                  | Yes  | Delete a trip                          |
+| POST   | /itineraries                 | Yes  | Create itinerary for a trip            |
+| GET    | /itineraries/{trip_id}       | Yes  | Get itinerary for a trip               |
+| POST   | /itineraries/{trip_id}/audio | Yes  | Narrate a saved itinerary as WAV       |
+| GET    | /knowledge/search            | No   | Semantic travel knowledge search       |
+| POST   | /vision/analyze              | Yes  | Image → structured travel insights     |
+| POST   | /speech/transcribe           | Yes  | Audio → text                           |
+| POST   | /speech/synthesize           | Yes  | Text → WAV                             |
+| POST   | /speech/plan                 | Yes  | Spoken request → itinerary (not saved) |

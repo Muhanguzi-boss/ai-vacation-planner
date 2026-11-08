@@ -68,9 +68,6 @@ def catalog_metrics() -> dict[str, tuple[str, str]]:
     return metrics
 
 
-# ---------------------------------------------------------------------------
-# DogStatsD formatting and event mapping
-# ---------------------------------------------------------------------------
 class DogStatsDFormattingTests(unittest.TestCase):
     def test_http_event_maps_to_count_and_distribution(self):
         event = TelemetryEvent(
@@ -173,9 +170,6 @@ class DogStatsDPrivacyTests(unittest.TestCase):
         self.assertNotIn(SENSITIVE, payload)
 
 
-# ---------------------------------------------------------------------------
-# Sink transport
-# ---------------------------------------------------------------------------
 class DogStatsDSinkTests(unittest.TestCase):
     def test_one_datagram_per_event_with_all_lines(self):
         sink, sock = fake_sink(global_tags={"service": "ai-vacation-planner", "env": "test"})
@@ -365,9 +359,6 @@ class DogStatsDTagSafetyTests(unittest.TestCase):
         self.assertEqual(names, ["vacation_planner.llm.request.count", "vacation_planner.llm.request.total_tokens"])
 
 
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
 class DatadogConfigurationTests(unittest.TestCase):
     def test_datadog_is_disabled_by_default(self):
         defaults = {name: field.default for name, field in Settings.model_fields.items()}
@@ -454,9 +445,6 @@ class DatadogConfigurationTests(unittest.TestCase):
         self.assertEqual(len(sock.sent), 1)
 
 
-# ---------------------------------------------------------------------------
-# Dashboard definition matches emitted telemetry
-# ---------------------------------------------------------------------------
 def iter_widgets(widgets):
     for widget in widgets:
         yield widget["definition"]

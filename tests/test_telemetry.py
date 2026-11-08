@@ -50,9 +50,6 @@ def all_values(events: list[TelemetryEvent]) -> str:
     )
 
 
-# ---------------------------------------------------------------------------
-# Core emitter, sanitization and categorization
-# ---------------------------------------------------------------------------
 class TelemetryCoreTests(unittest.TestCase):
     def test_tag_values_are_normalized_for_datadog(self):
         self.assertEqual(normalize_tag_value("/itineraries/{trip_id}/audio"), "/itineraries/:trip_id/audio")
@@ -168,9 +165,6 @@ class LogSinkTests(unittest.TestCase):
         self.assertIn("timestamp", record)
 
 
-# ---------------------------------------------------------------------------
-# HTTP request middleware
-# ---------------------------------------------------------------------------
 class RequestTelemetryMiddlewareTests(unittest.TestCase):
     def setUp(self):
         self.sink = InMemoryTelemetrySink()
@@ -250,9 +244,6 @@ class RequestTelemetryMiddlewareTests(unittest.TestCase):
         self.assertIn("app.add_middleware(RequestTelemetryMiddleware)", source)
 
 
-# ---------------------------------------------------------------------------
-# LLM callback: latency, model, token usage
-# ---------------------------------------------------------------------------
 class LLMTelemetryCallbackTests(unittest.TestCase):
     def setUp(self):
         self.sink = InMemoryTelemetrySink()
@@ -326,9 +317,6 @@ class LLMTelemetryCallbackTests(unittest.TestCase):
         self.assertIn(llm_telemetry_callback, model.callbacks)
 
 
-# ---------------------------------------------------------------------------
-# Orchestrator: generation outcome and tool execution
-# ---------------------------------------------------------------------------
 def itinerary(destination="Paris", day_count=1) -> GeneratedItinerary:
     return GeneratedItinerary.model_validate(
         {
@@ -440,9 +428,6 @@ class OrchestratorTelemetryTests(unittest.TestCase):
         self.assertEqual(generation.tags["error_category"], "validation_error")
 
 
-# ---------------------------------------------------------------------------
-# Vision generation and MCP fallback
-# ---------------------------------------------------------------------------
 class FakeVisionModel:
     model = "claude-test-model"
 

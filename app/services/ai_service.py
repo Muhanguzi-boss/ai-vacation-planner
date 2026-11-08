@@ -4,7 +4,6 @@ import logging
 from typing import Dict, Any, List
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-# Lazily import Anthropic to ensure runtime safety
 try:
     from anthropic import Anthropic
 except ImportError:
@@ -13,9 +12,6 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-# ----------------------------------------------------
-# Pydantic Schemas for AI Output Validation
-# ----------------------------------------------------
 class GeneratedActivity(BaseModel):
     time: str = Field(min_length=1)
     activity: str = Field(min_length=1)
@@ -56,9 +52,6 @@ class GeneratedItinerary(BaseModel):
         return self
 
 
-# ----------------------------------------------------
-# Prompt Template Design
-# ----------------------------------------------------
 def get_itinerary_prompt(
     destination: str,
     days: int,
@@ -191,9 +184,6 @@ def generate_mock_fallback(destination: str, days: int, budget: float | None, tr
     }
 
 
-# ----------------------------------------------------
-# AI Service Implementation
-# ----------------------------------------------------
 class AIService:
     """
     Service to manage travel itinerary generation via Anthropic.
@@ -224,7 +214,6 @@ class AIService:
 
         self.anthropic_model = os.getenv("ANTHROPIC_MODEL") or os.getenv("anthropic_model") or "claude-haiku-4-5"
 
-        # Lazy initialization
         self.anthropic_client = Anthropic(api_key=self.anthropic_key) if (Anthropic and self.anthropic_key) else None
 
     def _generate_with_anthropic(self, prompt: str) -> str:
@@ -267,7 +256,6 @@ class AIService:
             raw_response = self._generate_with_anthropic(prompt)
             cleaned = clean_json_response(raw_response)
 
-            # Validation before saving
             validated = GeneratedItinerary.model_validate_json(cleaned)
             logger.info("Successfully generated and validated itinerary with anthropic.")
             return validated.model_dump()

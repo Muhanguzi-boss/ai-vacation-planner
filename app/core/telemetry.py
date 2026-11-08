@@ -39,7 +39,6 @@ from typing import Any, Iterator, Mapping, Protocol
 
 METRIC_PREFIX = "vacation_planner"
 
-# Event names
 HTTP_REQUEST = "http.request"
 AI_GENERATION = "ai.generation"
 LLM_REQUEST = "llm.request"
@@ -47,7 +46,6 @@ LLM_MODEL_INIT = "llm.model_init"
 TOOL_EXECUTION = "tool.execution"
 MCP_WEATHER_FALLBACK = "mcp.weather.fallback"
 
-# Outcomes and error categories
 SUCCESS = "success"
 FAILURE = "failure"
 NO_ERROR = "none"
@@ -174,9 +172,6 @@ class LogTelemetrySink:
         _telemetry_logger().info(json.dumps(record, sort_keys=True))
 
 
-# ---------------------------------------------------------------------------
-# Datadog (DogStatsD over UDP, standard library only)
-# ---------------------------------------------------------------------------
 def metric_type(measurement: str) -> str:
     """DogStatsD type for a measurement: ``d`` (distribution) for ``*_ms``, else ``c`` (count)."""
     return "d" if measurement.endswith("_ms") else "c"
@@ -395,9 +390,6 @@ def model_tag(model: Any) -> str:
     return "unknown"
 
 
-# ---------------------------------------------------------------------------
-# Error categorization (type-based; exception messages are never inspected)
-# ---------------------------------------------------------------------------
 _EXCEPTION_CATEGORIES: tuple[tuple[tuple[str, ...], str], ...] = (
     (("ModelInitialization",), "model_init_error"),
     (("RateLimit",), "rate_limited"),
@@ -463,9 +455,6 @@ def http_error_category(status_code: int) -> str:
     return "client_error" if status_code < 500 else "server_error"
 
 
-# ---------------------------------------------------------------------------
-# HTTP request middleware
-# ---------------------------------------------------------------------------
 class RequestTelemetryMiddleware:
     """Pure ASGI middleware recording latency, status and error category per request.
 

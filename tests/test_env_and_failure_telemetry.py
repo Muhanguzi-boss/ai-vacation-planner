@@ -43,9 +43,6 @@ def without_anthropic_env() -> dict:
             {name.lower() for name in ANTHROPIC_VARS}}
 
 
-# ---------------------------------------------------------------------------
-# .env loading
-# ---------------------------------------------------------------------------
 class EnvLoadingTests(unittest.TestCase):
     def write_env(self, text: str) -> Path:
         directory = tempfile.TemporaryDirectory()
@@ -107,9 +104,6 @@ class EnvLoadingTests(unittest.TestCase):
         self.assertNotIn("openai", source.casefold())
 
 
-# ---------------------------------------------------------------------------
-# Model initialization failures
-# ---------------------------------------------------------------------------
 class ModelInitializationTelemetryTests(unittest.TestCase):
     def test_missing_api_key(self):
         with patch("app.services.agent_service.ai_service.anthropic_key", None), telemetry.capture() as sink:
@@ -181,9 +175,6 @@ class ModelInitializationTelemetryTests(unittest.TestCase):
         self.assertEqual(sink.named(AI_GENERATION)[0].tags["error_category"], "model_init_error")
 
 
-# ---------------------------------------------------------------------------
-# LLM generation failures and unsupported tools
-# ---------------------------------------------------------------------------
 class RateLimitError(Exception):
     """Named like the Anthropic SDK error; categorized by type name."""
 
@@ -243,9 +234,6 @@ class GenerationFailureTelemetryTests(unittest.TestCase):
         self.assertEqual(sink.named(AI_GENERATION)[0].tags["outcome"], "success")
 
 
-# ---------------------------------------------------------------------------
-# Every emitted event conforms to the catalog that drives Datadog metrics
-# ---------------------------------------------------------------------------
 class CatalogConformanceTests(unittest.TestCase):
     def test_events_from_real_code_paths_match_the_catalog(self):
         from app.core.telemetry import EVENT_CATALOG

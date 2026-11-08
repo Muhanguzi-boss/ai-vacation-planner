@@ -7,7 +7,6 @@ from app.models import user, trip, itinerary
 from app.controllers.itinerary_controller import generate_and_save_itinerary, get_itinerary_by_trip
 from app.schemas.itinerary import ItineraryResponse
 
-# Set up logging to print to console
 logging.basicConfig(level=logging.INFO)
 
 def main():
@@ -32,7 +31,6 @@ def main():
         print("Days generated:")
         print(json.dumps(itinerary.days, indent=2))
         
-        # Verify schema mapping
         print("\nVerifying schema response mapping...")
         response = ItineraryResponse(
             id=itinerary.id,

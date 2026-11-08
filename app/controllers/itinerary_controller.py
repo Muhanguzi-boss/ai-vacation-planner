@@ -18,17 +18,14 @@ def generate_and_save_itinerary(db: Session, trip_id: int, current_user_id: int)
     4. Saves the generated itinerary (days JSON & total_estimated_cost) into the database.
     5. Returns the itinerary.
     """
-    # 1. Fetch trip and check permissions
     trip = db.query(Trip).filter(Trip.id == trip_id, Trip.user_id == current_user_id).first()
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
 
-    # 2. Check if an itinerary already exists for this trip
     existing = db.query(Itinerary).filter(Itinerary.trip_id == trip_id).first()
     if existing:
         raise HTTPException(status_code=400, detail="Itinerary already exists for this trip")
 
-    # 3. Generate the itinerary through the LangGraph orchestration service
     logger.info("Generating itinerary")
     try:
         request = (
@@ -49,7 +46,6 @@ def generate_and_save_itinerary(db: Session, trip_id: int, current_user_id: int)
             detail="AI generation failed"
         )
 
-    # 4. Save to database
     try:
         itinerary = Itinerary(
             trip_id=trip_id,
