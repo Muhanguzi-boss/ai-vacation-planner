@@ -15,6 +15,7 @@ from typing import Any, Callable
 
 from langchain_core.tools import StructuredTool
 
+from app.core.telemetry import MCP_WEATHER_FALLBACK, telemetry
 from app.services.mcp_client import MCPClient, MCPClientError
 from app.tools.travel_tools import create_weather_tool
 
@@ -39,6 +40,10 @@ class MCPWeatherService:
                 "timed out" if "timed out" in str(exc).casefold() else "failed"
             )
             logger.warning("MCP weather lookup %s; using local weather fallback", failure_type)
+            telemetry.emit(
+                MCP_WEATHER_FALLBACK,
+                tags={"failure_type": "timeout" if failure_type == "timed out" else "failed"},
+            )
             return {**self.fallback(location), "source": "local fallback", "note": FALLBACK_NOTE}
 
 

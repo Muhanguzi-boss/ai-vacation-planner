@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 
+from app.core.telemetry import RequestTelemetryMiddleware
 from app.db.database import engine, Base
 from app.models import user, trip, itinerary
 from app.api.routes import auth, trips, itineraries, knowledge, vision, speech
@@ -12,6 +13,8 @@ app = FastAPI(
     description="Backend API for planning vacations with AI",
     version="1.0.0",
 )
+
+app.add_middleware(RequestTelemetryMiddleware)
 
 app.include_router(auth.router)
 app.include_router(trips.router)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from typing import Any, Annotated, TypedDict
 
 from langchain_anthropic import ChatAnthropic
@@ -10,7 +11,18 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
 
+from app.core.telemetry import (
+    AI_GENERATION,
+    FAILURE,
+    NO_ERROR,
+    SUCCESS,
+    elapsed_ms,
+    exception_category,
+    model_tag,
+    telemetry,
+)
 from app.services.ai_service import GeneratedItinerary, ai_service
+from app.services.llm_telemetry import ToolTelemetryCallback, llm_telemetry_callback
 from app.tools import default_travel_tools
 
 MAX_TOOL_ITERATIONS = 3
@@ -58,6 +70,7 @@ class TravelPlanningOrchestrator:
             api_key=api_key,
             temperature=ai_service.temperature,
             max_tokens_to_sample=ai_service.max_tokens,
+            callbacks=[llm_telemetry_callback],
         )
 
     def _build_graph(self):
@@ -167,10 +180,20 @@ class TravelPlanningOrchestrator:
             "expected_destination": expected_destination,
             "expected_days": expected_days,
         }
+        started = time.perf_counter()
+        tool_callback = ToolTelemetryCallback()
         try:
-            result = self.graph.invoke(initial_state)
+            result = self.graph.invoke(initial_state, config={"callbacks": [tool_callback]})
         except Exception as exc:
-            if isinstance(exc, OrchestrationError) and "tool limit" in str(exc):
+            is_tool_limit = isinstance(exc, OrchestrationError) and "tool limit" in str(exc)
+            if is_tool_limit:
+                category = "tool_limit"
+            elif tool_callback.failed:
+                category = "tool_error"
+            else:
+                category = exception_category(exc)
+            self._record_generation(started, FAILURE, category)
+            if is_tool_limit:
                 raise OrchestrationError(
                     "Travel orchestration exceeded the supported tool limit"
                 ) from None
@@ -178,5 +201,26 @@ class TravelPlanningOrchestrator:
 
         itinerary = result.get("itinerary")
         if not isinstance(itinerary, GeneratedItinerary):
+            self._record_generation(started, FAILURE, "invalid_output")
             raise OrchestrationError("Travel orchestration returned no valid itinerary")
+        self._record_generation(
+            started, SUCCESS, NO_ERROR, tool_iterations=result.get("tool_iterations", 0)
+        )
         return itinerary
+
+    def _record_generation(
+        self, started: float, outcome: str, category: str, tool_iterations: int | None = None
+    ) -> None:
+        measurements: dict[str, float] = {"duration_ms": elapsed_ms(started)}
+        if tool_iterations is not None:
+            measurements["tool_iterations"] = tool_iterations
+        telemetry.emit(
+            AI_GENERATION,
+            tags={
+                "workflow": "travel_planning",
+                "model": model_tag(self.model),
+                "outcome": outcome,
+                "error_category": category,
+            },
+            measurements=measurements,
+        )

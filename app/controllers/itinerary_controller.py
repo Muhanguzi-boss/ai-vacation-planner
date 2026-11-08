@@ -62,7 +62,8 @@ def generate_and_save_itinerary(db: Session, trip_id: int, current_user_id: int)
         return itinerary
     except Exception as e:
         db.rollback()
-        logger.critical(f"Database error saving itinerary for trip {trip_id}: {str(e)}", exc_info=True)
+        # Log only the exception type: database error messages embed SQL parameters.
+        logger.critical("Database error saving itinerary for trip %s (%s)", trip_id, type(e).__name__)
         raise HTTPException(
             status_code=500,
             detail="Failed to save the generated itinerary to the database."

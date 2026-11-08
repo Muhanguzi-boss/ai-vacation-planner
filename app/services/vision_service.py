@@ -1,10 +1,21 @@
 import base64
 import logging
+import time
 from typing import Any
 
 from langchain_core.messages import HumanMessage
 
 from app.core.config import settings
+from app.core.telemetry import (
+    AI_GENERATION,
+    FAILURE,
+    NO_ERROR,
+    SUCCESS,
+    elapsed_ms,
+    exception_category,
+    model_tag,
+    telemetry,
+)
 from app.schemas.vision import ImageTravelInsights
 
 logger = logging.getLogger(__name__)
@@ -98,16 +109,33 @@ class VisionService:
     def analyze(self, data: bytes, media_type: str) -> ImageTravelInsights:
         media_type = self.validate_image(data, media_type)
         message = self.build_message(data, media_type)
+        started = time.perf_counter()
         try:
             response = self.model.with_structured_output(ImageTravelInsights).invoke([message])
-            return (
+            insights = (
                 response
                 if isinstance(response, ImageTravelInsights)
                 else ImageTravelInsights.model_validate(response)
             )
         except Exception as exc:
-            logger.exception("Image analysis failed")
+            self._record_generation(started, FAILURE, exception_category(exc))
+            # Log only the exception type: validation errors embed the model's image description.
+            logger.error("Image analysis failed (%s)", type(exc).__name__)
             raise VisionAnalysisError("Image analysis failed") from exc
+        self._record_generation(started, SUCCESS, NO_ERROR)
+        return insights
+
+    def _record_generation(self, started: float, outcome: str, category: str) -> None:
+        telemetry.emit(
+            AI_GENERATION,
+            tags={
+                "workflow": "vision_analysis",
+                "model": model_tag(self._model),
+                "outcome": outcome,
+                "error_category": category,
+            },
+            measurements={"duration_ms": elapsed_ms(started)},
+        )
 
 
 vision_service = VisionService()

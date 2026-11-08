@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     WHISPER_COMPUTE_TYPE: str = "int8"
     MAX_AUDIO_UPLOAD_MB: int = 10
     MAX_AUDIO_DURATION_SECONDS: int = 300
+    TELEMETRY_ENABLED: bool = True
+    TELEMETRY_LOG_ENABLED: bool = True
 
 
 settings = Settings()
